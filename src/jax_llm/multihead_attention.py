@@ -81,8 +81,7 @@ class MultiHeadAttention(nn.Module):
 
         attn_scores = queries @ keys.transpose((0, 1, 3, 2))
 
-
-        attn_scores = jnp.where(self.mask == 1, -jnp.inf, attn_scores)
+        attn_scores = jnp.where(self.mask[:num_tokens, :num_tokens] == 1, -jnp.inf, attn_scores)
 
         attn_weights = jax.nn.softmax(attn_scores / jnp.sqrt(keys.shape[-1]), axis=-1)
         attn_weights = self.dropout(attn_weights, deterministic=not training)
@@ -122,7 +121,7 @@ if __name__ == "__main__":
     d_out = d_in
     mha = MultiHeadAttention(d_out=d_out, block_size = block_size, num_heads=num_heads, head_dim=d_out//num_heads, dropout_rate=0.0, qkv_bias=False)
     batch = input_embeddings
-    params = mha.init(jax.random.PRNGKey(0), batch, True)
+    params = mha.init(jax.random.PRNGKey(0), batch, False)
     context_vec = mha.apply(params, batch, True)
     print(context_vec.shape)
 
