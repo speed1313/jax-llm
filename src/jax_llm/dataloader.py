@@ -2,9 +2,9 @@ import tiktoken
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+from torch.utils import data
 
-
-class GPTDatasetV1:
+class GPTDatasetV1(data.Dataset):
     def __init__(self, txt, tokenizer, max_length, stride):
         self.tokenizer = tokenizer
         self.input_ids = []
@@ -25,28 +25,21 @@ class GPTDatasetV1:
         return self.input_ids[idx], self.target_ids[idx]
 
 
-def create_dataset_v1(
-    txt, batch_size=4, max_length=256, stride=128, shuffle=True, drop_last=True
-):
+
+def numpy_collate(batch):
+    if isinstance(batch[0], jnp.ndarray):
+        return jnp.stack(batch)
+    elif isinstance(batch[0], (tuple,list)):
+        transposed = zip(*batch)
+        return [numpy_collate(samples) for samples in transposed]
+    else:
+        return jnp.array(batch)
+
+
+def create_dataset_v1(txt, batch_size=4, max_length=256, stride=128, shuffle=True, drop_last=True):
     tokenizer = tiktoken.get_encoding("gpt2")
     dataset = GPTDatasetV1(txt, tokenizer, max_length, stride)
-    key = jax.random.PRNGKey(0)
-    num_batches = len(dataset) // batch_size
-    if not drop_last and len(dataset) % batch_size:
-        num_batches += 1
-    while True:
-        if shuffle:
-            key, subkey = jax.random.split(key)
-            indices = jax.random.permutation(subkey, len(dataset))
-        else:
-            indices = jnp.arange(len(dataset))
-        for i in range(num_batches):
-            batch_indices = indices[i * batch_size : (i + 1) * batch_size]
-            batch_inputs = [dataset[j][0] for j in batch_indices]
-            batch_targets = [dataset[j][1] for j in batch_indices]
-            yield jnp.stack(batch_inputs), jnp.stack(batch_targets)
-        break
-
+    return data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=numpy_collate, drop_last=drop_last)
 
 if __name__ == "__main__":
     with open("the-verdict.txt", "r", encoding="utf-8") as f:

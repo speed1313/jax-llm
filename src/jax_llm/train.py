@@ -5,6 +5,7 @@ import flax.linen as nn
 from dataloader import create_dataset_v1
 from model import GPTModel, generate_text_simple
 import optax
+import os
 
 GPT_CONFIG_124M = {
     "vocab_size": 50257,  # TODO: change to 50304
@@ -90,3 +91,51 @@ print(targets.shape)
 loss = optax.losses.softmax_cross_entropy(logits.reshape(-1, logits.shape[-1]), targets.reshape(-1, logits.shape[-1])).mean()
 print(loss)
 print(jnp.exp(loss))
+
+with open("the-verdict.txt", "r", encoding="utf-8") as f:
+    text_data = f.read()
+
+print(text_data[:99])
+
+print(text_data[-99:])
+
+total_characters = len(text_data)
+total_tokens = len(tokenizer.encode(text_data))
+
+print(f"Total characters: {total_characters}")
+print(f"Total tokens: {total_tokens}")
+
+train_ratio = 0.90
+split_idx = int(train_ratio * len(text_data))
+train_data = text_data[:split_idx]
+val_data = text_data[split_idx:]
+
+train_loader = create_dataset_v1(train_data, batch_size=2, max_length=GPT_CONFIG_124M["ctx_len"], stride=GPT_CONFIG_124M["ctx_len"], shuffle=True, drop_last=True)
+val_loader = create_dataset_v1(val_data, batch_size=2, max_length=GPT_CONFIG_124M["ctx_len"], stride=GPT_CONFIG_124M["ctx_len"], shuffle=False, drop_last=False)
+
+if total_tokens * train_ratio < GPT_CONFIG_124M["ctx_len"]:
+    raise ValueError("The training dataset is too small for the context length")
+
+if total_tokens * (1 - train_ratio) < GPT_CONFIG_124M["ctx_len"]:
+    raise ValueError("The validation dataset is too small for the context length")
+
+print(len(train_data))
+print("Train data:")
+for x, y in train_loader:
+    print(x.shape, y.shape)
+
+print("Validation data:")
+for x, y in val_loader:
+    print(x.shape, y.shape)
+
+train_tokens = 0
+for input_batch, target_batch in train_loader:
+    train_tokens += input_batch.size
+val_tokens = 0
+for input_batch, target_batch in val_loader:
+    val_tokens += input_batch.size
+print(f"Train tokens: {train_tokens}")
+print(f"Validation tokens: {val_tokens}")
+print(f"Total tokens: {train_tokens + val_tokens}")
+
+
