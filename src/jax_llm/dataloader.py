@@ -45,6 +45,7 @@ def create_dataset_v1(
             batch_inputs = [dataset[j][0] for j in batch_indices]
             batch_targets = [dataset[j][1] for j in batch_indices]
             yield jnp.stack(batch_inputs), jnp.stack(batch_targets)
+        break
 
 
 if __name__ == "__main__":
