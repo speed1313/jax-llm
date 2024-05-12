@@ -4,13 +4,15 @@ import jax.numpy as jnp
 import flax.linen as nn
 from torch.utils import data
 
+from utils import AbstractTokenizer
+
 
 class GPTDatasetV1(data.Dataset):
-    def __init__(self, txt, tokenizer, max_length, stride):
+    def __init__(self, txt, tokenizer: AbstractTokenizer, max_length, stride):
         self.input_ids = []
         self.target_ids = []
 
-        token_ids = tokenizer.encode(txt, allowed_special={"<|endoftext|>"})
+        token_ids = tokenizer.encode(txt)
 
         for i in range(0, len(token_ids) - max_length, stride):
             input_chunk = token_ids[i : i + max_length]
@@ -36,9 +38,14 @@ def numpy_collate(batch):
 
 
 def create_dataset_v1(
-    txt, batch_size=4, max_length=256, stride=128, shuffle=True, drop_last=True
+    txt,
+    tokenizer: AbstractTokenizer,
+    batch_size=4,
+    max_length=256,
+    stride=128,
+    shuffle=True,
+    drop_last=True,
 ):
-    tokenizer = tiktoken.get_encoding("gpt2")
     dataset = GPTDatasetV1(txt, tokenizer, max_length, stride)
     return data.DataLoader(
         dataset,
@@ -52,8 +59,7 @@ def create_dataset_v1(
 if __name__ == "__main__":
     with open("the-verdict.txt", "r", encoding="utf-8") as f:
         raw_text = f.read()
-
-    tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer = AbstractTokenizer(tiktoken.get_encoding("gpt2"), "gpt2")
     encoded_text = tokenizer.encode(raw_text)
 
     vocab_size = 50257
@@ -70,7 +76,13 @@ if __name__ == "__main__":
     )
 
     dataloader = create_dataset_v1(
-        raw_text, batch_size=8, max_length=4, stride=4, shuffle=False, drop_last=True
+        raw_text,
+        tokenizer,
+        batch_size=8,
+        max_length=4,
+        stride=4,
+        shuffle=False,
+        drop_last=True,
     )
 
     for batch in dataloader:

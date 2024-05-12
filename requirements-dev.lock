@@ -43,6 +43,7 @@ h5py==3.11.0
 huggingface-hub==0.23.0
 idna==3.7
 importlib-resources==6.4.0
+iniconfig==2.0.0
 ipykernel==6.29.4
 ipython==8.24.0
 jax==0.4.27
@@ -91,6 +92,7 @@ parso==0.8.4
 pexpect==4.9.0
 pillow==10.3.0
 platformdirs==4.2.1
+pluggy==1.5.0
 promise==2.3
 prompt-toolkit==3.0.43
 protobuf==4.25.3
@@ -101,6 +103,7 @@ pyarrow==16.0.0
 pyarrow-hotfix==0.6
 pygments==2.18.0
 pyparsing==3.1.2
+pytest==8.2.0
 python-dateutil==2.9.0.post0
 pytz==2024.1
 pyyaml==6.0.1

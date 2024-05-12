@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 import flax.linen as nn
 from dataloader import create_dataset_v1
+from utils import AbstractTokenizer
 
 
 class MultiHeadAttention(nn.Module):
@@ -56,10 +57,19 @@ class MultiHeadAttention(nn.Module):
 
 
 if __name__ == "__main__":
+    import tiktoken
+
     with open("the-verdict.txt", "r", encoding="utf-8") as f:
         raw_text = f.read()
+    tokenizer = AbstractTokenizer(tiktoken.get_encoding("gpt2"), "gpt2")
     datalodaer = create_dataset_v1(
-        raw_text, batch_size=8, max_length=4, stride=5, shuffle=True, drop_last=True
+        raw_text,
+        tokenizer,
+        batch_size=8,
+        max_length=4,
+        stride=5,
+        shuffle=True,
+        drop_last=True,
     )
     vocab_size = 50257
     output_dim = 256

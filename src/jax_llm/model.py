@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import flax.linen as nn
 from multihead_attention import MultiHeadAttention
 from dataclasses import dataclass
+from utils import AbstractTokenizer, generate
 
 
 @dataclass
@@ -160,26 +161,13 @@ def test_gpt_model():
     batch.append(jnp.array(tokenizer.encode(txt1)))
     batch.append(jnp.array(tokenizer.encode(txt2)))
     batch = jnp.stack(batch)
-    model = GPTModel(cfg=GPT_CONFIG_124M)
+    model = GPTModel(cfg=GPTConfig())
     variables = model.init(jax.random.PRNGKey(0), batch, training=False)
     assert 163009536 == model.get_total_params(variables)
 
 
-def generate_text_simple(model, variables, idx, max_new_tokens, context_size):
-    for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]
-        logits = model.apply(variables, idx_cond, training=False)
-
-        logits = logits[:, -1, :]
-        probas = jax.nn.softmax(logits, axis=-1)
-        idx_next = jnp.argmax(probas, axis=-1)
-
-        idx = jnp.concatenate([idx, idx_next[:, None]], axis=-1)
-    return idx
-
-
 if __name__ == "__main__":
-    tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer = AbstractTokenizer(tiktoken.get_encoding("gpt2"), "gpt2")
     batch = []
 
     txt1 = "Every effort moves you"
@@ -189,7 +177,7 @@ if __name__ == "__main__":
     batch.append(jnp.array(tokenizer.encode(txt2)))
     batch = jnp.stack(batch)
 
-    model = GPTModel(cfg=GPT_CONFIG_124M)
+    model = GPTModel(cfg=GPTConfig())
     variables = model.init(jax.random.PRNGKey(0), batch, training=False)
     logits = model.apply(
         variables, batch, training=False, rngs={"dropout": jax.random.key(2)}
@@ -241,12 +229,13 @@ if __name__ == "__main__":
     encoded_tensor = jnp.array(encoded)[None, :]
     print("encoded_tensor:", encoded_tensor.shape)
 
-    out = generate_text_simple(
+    out = generate(
         model,
         variables,
+        key=None,
         idx=encoded_tensor,
         max_new_tokens=6,
-        context_size=GPT_CONFIG_124M["ctx_len"],
+        context_size=GPTConfig.ctx_len,
     )
     print("out:", out)
     print(len(out[0]))
