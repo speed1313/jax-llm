@@ -1,15 +1,16 @@
 # jax-llm
 JAX implementation of Large Language Models.
-We can train GPT-2-like model with 青空文庫([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0) dataset).
+We can train GPT-2-like model with 青空文庫([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
 
 ## How to use
 
-###  Prepare [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0) dataset.
-One txt file will be created. We use only 100 books for now.
+###  Prepare [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset.
+
 ```bash
 cd src/jax_llm
 rye run python3 prepare_aozora.py --book_num 100
 ```
+One txt file will be created. We use only 100 books for now.
 
 ###  Train BPE (Byte Pair Encoding) tokenizer.
 We need to specify the path of the txt file created in the previous step. It takes about 10 seconds.
@@ -17,7 +18,7 @@ We need to specify the path of the txt file created in the previous step. It tak
 rye run python3 train_tokenizer.py --data_path "aozora.txt"
 ```
 
-###  Train GPT-2-like model with aozora bunko dataset.
+###  Train GPT-2-like model with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset.
 ```bash
 rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl""
 ```
@@ -35,8 +36,8 @@ rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --mode
 Rasbt's implementation and explanation is very helpful. I learned a lot from this work. Thank you very much!
 - [rasbt, Build a Large Language Model (From Scratch)](https://github.com/rasbt/LLMs-from-scratch)
 
-Thank you for providing aozora-clean dataset!
-- [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0)
+Special thanks to akeyhero for providing the aozora-clean dataset!
+- [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
 
 Karpathy's nanoGPT is also very helpful. Karpathy's projects are always very interesting. Thank you very much!
 - [karpathy, nanoGPT](https://github.com/karpathy/nanoGPT)
@@ -50,5 +51,5 @@ Karpathy's nanoGPT is also very helpful. Karpathy's projects are always very int
 
 ### aozora-clean dataset
 - akeyhero, https://qiita.com/akeyhero/items/b53eae1c0bc4d54e321f
-- [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0)
+- [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
 - 青空文庫, https://www.aozora.gr.jp/
