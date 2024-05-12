@@ -3,29 +3,32 @@ JAX implementation of Large Language Models.
 We can train GPT-2-like model with 青空文庫([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0) dataset).
 
 ## How to use
-- Prepare [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0) dataset.
+
+###  Prepare [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean?row=0) dataset.
 One txt file will be created. We use only 100 books for now.
 ```bash
 cd src/jax_llm
 rye run python3 prepare_aozora.py --book_num 100
 ```
 
-- Train BPE(Byte Pair Encoding) tokenizer.
+###  Train BPE (Byte Pair Encoding) tokenizer.
 We need to specify the path of the txt file created in the previous step. It takes about 10 seconds.
 ```bash
 rye run python3 train_tokenizer.py --data_path "aozora.txt"
 ```
 
-- Train GPT-2-like model with aozora bunko dataset.
+###  Train GPT-2-like model with aozora bunko dataset.
 ```bash
 rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl""
 ```
 We can change hyperparameters of the model in `src/jax_llm/train.py`'s `GPTConfig` dataclass.
 
-- Generate text with the trained model.
+### Generate text with the trained model.
 ```bash
 rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl"
 ```
+
+
 
 
 ## Acknowledgements
