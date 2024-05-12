@@ -122,7 +122,7 @@ class GPTModel(nn.Module):
         self.pos_emb = nn.Embed(self.cfg["ctx_len"], self.cfg["emb_dim"])
         self.drop_emb = nn.Dropout(rate=self.cfg["drop_rate"])
 
-        self.trf_layer = TransformerBlock(cfg=self.cfg)
+        self.trf_blocks = [TransformerBlock(cfg=self.cfg) for _ in range(self.cfg["n_layers"])]
 
         self.final_norm = LayerNorm(self.cfg["emb_dim"])
         self.out_head = nn.Dense(self.cfg["vocab_size"], use_bias=False)
@@ -133,8 +133,8 @@ class GPTModel(nn.Module):
         pos_embeds = self.pos_emb(jnp.arange(seq_len))
         x = tok_embeds + pos_embeds
         x = self.drop_emb(x, deterministic=not training)
-        for _ in range(self.cfg["n_layers"]):
-            x = self.trf_layer(x, training)
+        for block in self.trf_blocks:
+            x = block(x, training)
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits
@@ -188,7 +188,8 @@ if __name__ == "__main__":
         [p.size for p in jax.tree.leaves(variables["params"]["tok_emb"])]
     )
     print(total_params + out_head_params + tok_emb_params)
-    print(sum([p.size for p in jax.tree.leaves(variables["params"]["trf_layer"])]) * 12)
+    print(variables["params"].keys())
+    print(sum([p.size for p in jax.tree.leaves(variables["params"]["trf_blocks_0"])]))
     total_params_gpt2 = total_params - sum(
         [p.size for p in jax.tree.leaves(variables["params"]["out_head"])]
     )
