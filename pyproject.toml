@@ -6,20 +6,18 @@ authors = [
     { name = "speed1313", email = "speedtry13@icloud.com" }
 ]
 dependencies = [
-    "jax>=0.4.13",
     "torch>=2.3.0",
     "matplotlib>=3.7.5",
     "tqdm>=4.66.4",
     "tiktoken>=0.6.0",
     "flax>=0.7.2",
-    "tensorflow>=2.13.1",
     "optax>=0.1.8",
     "pip>=24.0",
     "ipykernel>=6.29.4",
-    "tensorflow_datasets>=4.9.2",
     "datasets>=2.19.1",
     "tokenizers>=0.19.1",
     "click>=8.1.7",
+    "jax[cuda12]>=0.4.13",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

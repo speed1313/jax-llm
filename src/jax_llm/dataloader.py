@@ -13,12 +13,18 @@ class GPTDatasetV1(data.Dataset):
         self.target_ids = []
 
         token_ids = tokenizer.encode(txt)
+        token_ids = jnp.array(token_ids)
 
-        for i in range(0, len(token_ids) - max_length, stride):
-            input_chunk = token_ids[i : i + max_length]
-            target_chunk = token_ids[i + 1 : i + max_length + 1]
-            self.input_ids.append(jnp.array(input_chunk))
-            self.target_ids.append(jnp.array(target_chunk))
+        @jax.jit
+        def chunk_processing(i):
+            input_chunk = jax.lax.dynamic_slice(token_ids, (i,), (max_length,))
+            target_chunk = jax.lax.dynamic_slice(token_ids, (i + 1,), (max_length,))
+            return input_chunk, target_chunk
+
+        input_chunks, target_chunks = jax.vmap(chunk_processing)(jnp.arange(0, len(token_ids) - max_length, stride))
+
+        self.input_ids = jnp.array(input_chunks)
+        self.target_ids = jnp.array(target_chunks)
 
     def __len__(self):
         return len(self.input_ids)
@@ -87,6 +93,7 @@ if __name__ == "__main__":
 
     for batch in dataloader:
         inputs, targets = batch
+        print(inputs.shape)
         token_embeddings = token_embedding_layer.apply(
             token_embedding_variables, inputs
         )

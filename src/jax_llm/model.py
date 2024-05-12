@@ -45,51 +45,11 @@ class FeerForward(nn.Module):
         return x
 
 
-class ExampleDeepNeuralNetwork(nn.Module):
-    layer_sizes: list
-    use_shortcut: bool
-
-    def setup(self):
-        self.layers = [
-            nn.Sequential([nn.Dense(self.layer_sizes[1]), nn.gelu]),
-            nn.Sequential([nn.Dense(self.layer_sizes[2]), nn.gelu]),
-            nn.Sequential([nn.Dense(self.layer_sizes[3]), nn.gelu]),
-            nn.Sequential([nn.Dense(self.layer_sizes[4]), nn.gelu]),
-            nn.Sequential([nn.Dense(self.layer_sizes[5]), nn.gelu]),
-        ]
-
-    def __call__(self, x):
-        for layer in self.layers:
-            layer_output = layer(x)
-            if self.use_shortcut and x.shape == layer_output.shape:
-                x = x + layer_output
-            else:
-                x = layer_output
-        return x
-
-
-def print_gradients(model, variable, x):
-    output = model.apply(variable, x)
-    target = jnp.ones_like(output)
-    loss_fn = lambda params, x: jnp.mean((model.apply(params, x) - target) ** 2)
-    grad_fn = jax.value_and_grad(loss_fn)
-    loss, grad = grad_fn(variable, x)
-    # show layer's weight grads mean.
-    print(jax.tree.map(lambda x: jnp.mean(x), grad))
-
-
 class TransformerBlock(nn.Module):
     cfg: GPTConfig
 
     def setup(self):
-        self.att = MultiHeadAttention(
-            d_out=self.cfg.emb_dim,
-            block_size=self.cfg.ctx_len,
-            num_heads=self.cfg.n_heads,
-            head_dim=self.cfg.emb_dim // self.cfg.n_heads,
-            dropout_rate=self.cfg.drop_rate,
-            qkv_bias=self.cfg.qkv_bias,
-        )
+        self.head_dim = self.cfg.emb_dim // self.cfg.n_heads
         self.ff = FeerForward(cfg=self.cfg)
         self.norm1 = LayerNorm(self.cfg.emb_dim)
         self.norm2 = LayerNorm(self.cfg.emb_dim)
@@ -97,20 +57,23 @@ class TransformerBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x, training: bool):
+        B, T, C = x.shape
         shortcut = x
         x = self.norm1(x)
+
         # x = self.att(x, training)
         x = x + nn.MultiHeadDotProductAttention(
             num_heads=self.cfg.n_heads,
-            qkv_features=self.cfg.emb_dim // self.cfg.n_heads,
-            out_features=self.cfg.n_heads * (self.cfg.emb_dim // self.cfg.n_heads),
+            qkv_features=self.head_dim,
+            out_features=self.cfg.emb_dim,
             dropout_rate=self.cfg.drop_rate,
         )(
             x,
             x,
-            mask=jnp.tril(jnp.ones((x.shape[-2], x.shape[-2]))),
+            mask=jnp.tril(jnp.ones((T, T), dtype=jnp.bool_), 0),
             deterministic=not training,
         )
+        assert x.shape == (B, T, C)
         x = self.drop_resid(x, deterministic=not training)
         x = x + shortcut
 
@@ -148,22 +111,6 @@ class GPTModel(nn.Module):
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits
-
-    def get_total_params(self, variables):
-        return sum(x.size for x in jax.tree_leaves(variables))
-
-
-def test_gpt_model():
-    tokenizer = tiktoken.get_encoding("gpt2")
-    batch = []
-    txt1 = "Every effort moves you"
-    txt2 = "Every day holds a"
-    batch.append(jnp.array(tokenizer.encode(txt1)))
-    batch.append(jnp.array(tokenizer.encode(txt2)))
-    batch = jnp.stack(batch)
-    model = GPTModel(cfg=GPTConfig())
-    variables = model.init(jax.random.PRNGKey(0), batch, training=False)
-    assert 163009536 == model.get_total_params(variables)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ def main(data_path: str):
     tokenizer = Tokenizer(BPE(unk_token="<|endoftext|>"))
     tokenizer.pre_tokenizer = Whitespace()
 
-    trainer = BpeTrainer(special_tokens=["<|endoftext|>"])
+    trainer = BpeTrainer( vocab_size=50304, special_tokens=["<|endoftext|>"])
     files = [data_path]
     tokenizer.train(
         files, trainer

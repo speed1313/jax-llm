@@ -8,22 +8,22 @@ You can train GPT-2-like model with 青空文庫 ([aozora bunko-clean](https://h
 
 ```bash
 cd src/jax_llm
-rye run python3 prepare_aozora.py --book_num 100
+rye run python3 prepare_aozora.py --book_num 1000
 ```
-This command generates a single text file. Currently, only 100 books are used.
+This command generates a single text file. Currently, only 1000 books (9359840 Tokens) are used.
 
 > [!NOTE]
 > You can use any dataset for training by simply preparing a suitable txt file, without executing this command.
 
 ###  Train the BPE (Byte Pair Encoding) tokenizer.
-Specify the path to the text file created in the previous step. This process takes approximately 10 seconds.
+Specify the path to the text file created in the previous step. This process takes approximately 20 seconds.
 ```bash
 rye run python3 train_tokenizer.py --data_path "aozora.txt"
 ```
 
 ###  Train GPT-2-like model with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/Aozorabunko-clean) dataset.
 ```bash
-rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl""
+rye run python3 train.py --data_path "aozora.txt" --tokenizer_path "data/tokenizer-aozora.json" --batch_size 32 --epochs 1
 ```
 Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`'s `GPTConfig` dataclass.
 You can increase the model size if you have a large computational resource.

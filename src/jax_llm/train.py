@@ -10,42 +10,53 @@ import pickle
 import click
 from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, generate
 from tokenizers import Tokenizer
-
 jax.config.update("jax_debug_nans", True)
 
 
 @dataclass
 class GPTConfig:
-    vocab_size: int = 30000
-    ctx_len: int = 256
-    emb_dim: int = 768
-    n_heads: int = 8
-    n_layers: int = 6
+    vocab_size: int = 50304
+    ctx_len: int = 64
+    emb_dim: int = 128
+    n_heads: int = 4
+    n_layers: int = 4
     drop_rate: float = 0.1
     qkv_bias: bool = False
 
 
-def calc_loss_batch(
+def calc_loss_train(
     variables, input_batch, target_batch, model, training=True, key=None
 ):
-    # TODO: dropout rng is valid?
-    if training:
+    @jax.jit
+    def loss_fn(variables):
         logits = model.apply(
             variables,
             input_batch,
             training=True,
             rngs={"dropout": key},
         )
-    else:
+        return optax.losses.softmax_cross_entropy_with_integer_labels(
+            logits=logits, labels=target_batch
+        ).mean()
+    loss = loss_fn(variables)
+    return loss
+
+
+def calc_loss_val(
+    variables, input_batch, target_batch, model, training=False, key=None
+):
+    @jax.jit
+    def loss_fn(variables):
         logits = model.apply(variables, input_batch, training=False)
-    loss = optax.losses.softmax_cross_entropy_with_integer_labels(
-        logits=logits, labels=target_batch
-    ).mean()
+        return optax.losses.softmax_cross_entropy_with_integer_labels(
+            logits=logits, labels=target_batch
+        ).mean()
+    loss = loss_fn(variables)
     return loss
 
 
 def calc_loss_loader(
-    data_loader, model, num_batches=None, variables=None, training=True, key=None
+    data_loader, model, num_batches=None, variables=None, training=False, key=None
 ):
     total_loss = 0.0
     if len(data_loader) == 0:
@@ -56,8 +67,8 @@ def calc_loss_loader(
         num_batches = min(num_batches, len(data_loader))
     for i, (input_batch, target_batch) in enumerate(data_loader):
         if i < num_batches:
-            loss = calc_loss_batch(
-                variables, input_batch, target_batch, model, training, key
+            loss = calc_loss_val(
+                variables, input_batch, target_batch, model, training=training, key=key
             )
             total_loss += loss
         else:
@@ -84,7 +95,7 @@ def train_model_simple(
     for epoch in range(num_epochs):
         for input_batch, target_batch in train_loader:
             key, subkey = jax.random.split(key)
-            grads = jax.grad(calc_loss_batch)(
+            grads = jax.grad(calc_loss_train)(
                 variables, input_batch, target_batch, model, training=True, key=subkey
             )
             updates, optimizer_state = optimizer.update(
@@ -114,8 +125,7 @@ def train_model_simple(
                 print(
                     f"Ep {epoch+1} (Step {global_step:06d}): Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}"
                 )
-
-        generate_and_print_sample(model, variables, start_context, tokenizer)
+                #generate_and_print_sample(model, variables, start_context, tokenizer)
     return train_losses, val_losses, track_tokens_seen, variables, optimizer_state
 
 
@@ -152,8 +162,8 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
 @click.option("--data_path", type=str, default="the-verdict.txt")
 @click.option("--tokenizer_path", type=str, default="data/tokenizer-aozora.json")
 @click.option("--batch_size", type=int, default=16)
-@click.option("--epochs", type=int, default=10)
-@click.option("--learning_rate", type=float, default=4e-4)
+@click.option("--epochs", type=int, default=1)
+@click.option("--learning_rate", type=float, default=6e-4)
 @click.option("--weight_decay", type=float, default=0.1)
 def main(
     data_path: str,
@@ -173,6 +183,7 @@ def main(
         tokenizer = AbstractTokenizer(
             Tokenizer.from_file(tokenizer_path), tokenizer_path
         )
+        print("Tokenizer loaded")
     with open(data_path, "r", encoding="utf-8") as f:
         text_data = f.read()
     train_ratio = 0.90
@@ -210,6 +221,9 @@ def main(
         jnp.ones((batch_size, GPTConfig.ctx_len), dtype=jnp.int32),
         training=False,
     )
+    # print("Total tokens:", len(tokenizer.encode(text_data)))
+    print("Total parameters:", sum(x.size for x in jax.tree.leaves(variables)))
+
     opt_state = optimizer.init(variables)
     train_losses, val_losses, track_tokens_seen, variables, opt_state = (
         train_model_simple(
