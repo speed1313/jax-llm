@@ -9,9 +9,12 @@
 
 -e file:.
 absl-py==2.1.0
+aiohttp==3.9.5
+aiosignal==1.3.1
 array-record==0.5.1
 asttokens==2.4.1
 astunparse==1.6.3
+attrs==23.2.0
 certifi==2024.2.2
 charset-normalizer==3.3.2
 chex==0.1.86
@@ -19,8 +22,10 @@ click==8.1.7
 comm==0.2.2
 contourpy==1.2.1
 cycler==0.12.1
+datasets==2.19.1
 debugpy==1.8.1
 decorator==5.1.1
+dill==0.3.8
 dm-tree==0.1.8
 etils==1.8.0
 executing==2.0.1
@@ -28,12 +33,14 @@ filelock==3.14.0
 flatbuffers==24.3.25
 flax==0.8.3
 fonttools==4.51.0
+frozenlist==1.4.1
 fsspec==2024.3.1
 gast==0.5.4
 google-pasta==0.2.0
 googleapis-common-protos==1.63.0
 grpcio==1.63.0
 h5py==3.11.0
+huggingface-hub==0.23.0
 idna==3.7
 importlib-resources==6.4.0
 ipykernel==6.29.4
@@ -56,6 +63,8 @@ mdurl==0.1.2
 ml-dtypes==0.3.2
 mpmath==1.3.0
 msgpack==1.0.8
+multidict==6.0.5
+multiprocess==0.70.16
 namex==0.0.8
 nest-asyncio==1.6.0
 networkx==3.3
@@ -77,6 +86,7 @@ optax==0.2.2
 optree==0.11.0
 orbax-checkpoint==0.5.10
 packaging==24.0
+pandas==2.2.2
 parso==0.8.4
 pexpect==4.9.0
 pillow==10.3.0
@@ -87,9 +97,12 @@ protobuf==4.25.3
 psutil==5.9.8
 ptyprocess==0.7.0
 pure-eval==0.2.2
+pyarrow==16.0.0
+pyarrow-hotfix==0.6
 pygments==2.18.0
 pyparsing==3.1.2
 python-dateutil==2.9.0.post0
+pytz==2024.1
 pyyaml==6.0.1
 pyzmq==26.0.3
 regex==2024.4.28
@@ -109,6 +122,7 @@ tensorflow-metadata==1.15.0
 tensorstore==0.1.59
 termcolor==2.4.0
 tiktoken==0.6.0
+tokenizers==0.19.1
 toml==0.10.2
 toolz==0.12.1
 torch==2.3.0
@@ -117,11 +131,14 @@ tqdm==4.66.4
 traitlets==5.14.3
 triton==2.3.0
 typing-extensions==4.11.0
+tzdata==2024.1
 urllib3==2.2.1
 wcwidth==0.2.13
 werkzeug==3.0.3
 wheel==0.43.0
 wrapt==1.16.0
+xxhash==3.4.1
+yarl==1.9.4
 zipp==3.18.1
 # The following packages are considered to be unsafe in a requirements file:
 pip==24.0

@@ -5,9 +5,10 @@ from dataloader import create_dataset_v1
 from model import GPTModel, generate_text_simple
 import optax
 from dataclasses import dataclass
-
+from tokenizers import Tokenizer
 import matplotlib.pyplot as plt
 import pickle
+import click
 
 
 @dataclass
@@ -25,7 +26,7 @@ class GPTConfig:
 class OptimizerConfig:
     learning_rate: float = 4e-4
     weight_decay: float = 0.1
-    batch_size: int = 4
+    batch_size: int = 32
     epochs: int = 10
 
 
@@ -162,14 +163,21 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     plt.show()
 
 
-if __name__ == "__main__":
+@click.command()
+@click.option("--data_path", type=str, default="the-verdict.txt")
+@click.option("--tokenizer_path", type=str, default="data/tokenizer-aozora.json")
+def main(data_path: str, tokenizer_path: str):
     model = GPTModel(cfg=GPTConfig())
     key = jax.random.PRNGKey(0)
-    tokenizer = tiktoken.get_encoding("gpt2")
-    with open("the-verdict.txt", "r", encoding="utf-8") as f:
+    if tokenizer_path == "gpt2":
+        tokenizer = tiktoken.get_encoding("gpt2")
+    else:
+        print(f"Loading tokenizer from {tokenizer_path}")
+        tokenizer = Tokenizer.from_file(tokenizer_path)
+    with open(data_path, "r", encoding="utf-8") as f:
         text_data = f.read()
     train_ratio = 0.90
-    total_tokens = len(tokenizer.encode(text_data, allowed_special={"<|endoftext|>"}))
+    total_tokens = len(tokenizer.encode(text_data))
     split_idx = int(train_ratio * len(text_data))
     train_data = text_data[:split_idx]
     val_data = text_data[split_idx:]
@@ -218,7 +226,7 @@ if __name__ == "__main__":
         )
     )
 
-    epochs_tensor = jnp.linspace(0, num_epochs, num=len(train_losses))
+    epochs_tensor = jnp.linspace(0, OptimizerConfig.epochs, num=len(train_losses))
     plot_losses(
         epochs_tensor,
         jnp.array(track_tokens_seen),
@@ -227,5 +235,10 @@ if __name__ == "__main__":
     )
 
     # store variables
-    with open("variables.pkl", "wb") as f:
+    with open(f"{data_path}_variables.pkl", "wb") as f:
         pickle.dump(variables, f)
+    print("Variables stored")
+
+
+if __name__ == "__main__":
+    main()

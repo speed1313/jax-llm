@@ -2,6 +2,8 @@ import tiktoken
 import jax
 import jax.numpy as jnp
 from model import GPTModel
+from dataclasses import dataclass
+import click
 
 
 @dataclass
@@ -13,6 +15,14 @@ class GPTConfig:
     n_layers: int = 6
     drop_rate: float = 0.1
     qkv_bias: bool = False
+
+
+@dataclass
+class OptimizerConfig:
+    learning_rate: float = 4e-4
+    weight_decay: float = 0.1
+    batch_size: int = 4
+    epochs: int = 10
 
 
 def text_to_token_ids(text, tokenizer):
@@ -62,17 +72,28 @@ def generate(
     return idx
 
 
-if __name__ == "__main__":
+@click.command()
+@click.option("--data_path", type=str, default="the-verdict.txt")
+@click.option("--tokenizer_path", type=str, default="data/tokenizer-aozora.json")
+def main():
     model = GPTModel(cfg=GPTConfig())
+
+    variables = model.init(
+        jax.random.PRNGKey(0),
+        jnp.ones((OptimizerConfig.batch_size, GPTConfig.ctx_len), dtype=jnp.int32),
+        training=False,
+    )
     key = jax.random.PRNGKey(0)
 
     start_context = "Every effort moves you"
+    if tokenizer_path != "gpt2":
+        start_context = "深いおどろきにうたれて、"
     tokenizer = tiktoken.get_encoding("gpt2")
     batch = text_to_token_ids(start_context, tokenizer)
 
     import pickle
 
-    with open("variables.pkl", "rb") as f:
+    with open(f"{data_path}_variables.pkl", "rb") as f:
         variables = pickle.load(f)
 
     key, subkey = jax.random.split(key)
@@ -88,3 +109,7 @@ if __name__ == "__main__":
     )
 
     print("Output:", token_ids_to_text(token_ids, tokenizer))
+
+
+if __name__ == "__main__":
+    main()

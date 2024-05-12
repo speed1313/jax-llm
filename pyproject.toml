@@ -17,6 +17,9 @@ dependencies = [
     "pip>=24.0",
     "ipykernel>=6.29.4",
     "tensorflow_datasets>=4.9.2",
+    "datasets>=2.19.1",
+    "tokenizers>=0.19.1",
+    "click>=8.1.7",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
