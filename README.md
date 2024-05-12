@@ -1,32 +1,35 @@
 # jax-llm
 JAX implementation of Large Language Models.
-We can train GPT-2-like model with 青空文庫([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
+We can train GPT-2-like model with 青空文庫 ([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
 
 ## How to use
 
-###  Prepare [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset.
+###  Prepare the [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset.
 
 ```bash
 cd src/jax_llm
 rye run python3 prepare_aozora.py --book_num 100
 ```
-One txt file will be created. We use only 100 books for now.
+This command generates a single text file. Currently, only 100 books are used.
 
-###  Train BPE (Byte Pair Encoding) tokenizer.
-We need to specify the path of the txt file created in the previous step. It takes about 10 seconds.
+> [!NOTE]
+> You can use any dataset for training by simply preparing a suitable txt file, without executing this command.
+
+###  Train the BPE (Byte Pair Encoding) tokenizer.
+Specify the path to the text file created in the previous step. This process takes approximately 10 seconds.
 ```bash
 rye run python3 train_tokenizer.py --data_path "aozora.txt"
 ```
 
-###  Train GPT-2-like model with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset.
+###  Train GPT-2-like model with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/Aozorabunko-clean) dataset.
 ```bash
 rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl""
 ```
-We can change hyperparameters of the model in `src/jax_llm/train.py`'s `GPTConfig` dataclass.
+Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`'s `GPTConfig` dataclass.
 
 ### Generate text with the trained model.
 ```bash
-rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl"
+rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl" --prompt "深いおどろきにうたれて、" --temperature 0.7 --max_length 50 --top_k 30
 ```
 
 
@@ -49,7 +52,7 @@ Karpathy's nanoGPT is also very helpful. Karpathy's projects are always very int
 - [Radford et al., Language Models are Unsupervised Multitask Learners, 2019](https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf)
 - https://github.com/cgarciae/nanoGPT-jax
 
-### aozora-clean dataset
+### aozora bunko-clean dataset
 - akeyhero, https://qiita.com/akeyhero/items/b53eae1c0bc4d54e321f
 - [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
 - 青空文庫, https://www.aozora.gr.jp/
