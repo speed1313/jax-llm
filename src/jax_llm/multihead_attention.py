@@ -4,59 +4,6 @@ import flax.linen as nn
 from dataloader import create_dataset_v1
 
 
-class CausalAttention(nn.Module):
-    d_in: int
-    d_out: int
-    block_size: int
-    dropout: float
-    qkv_bias: bool = False
-
-    def setup(self):
-        self.W_query = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
-        self.W_key = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
-        self.W_value = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
-        self.mask = jnp.triu(jnp.ones((self.block_size, self.block_size)), k=1)
-
-    @nn.compact
-    def __call__(self, x, training: bool):
-        b, num_tokens, d_in = x.shape
-        keys = self.W_key(x)
-        values = self.W_value(x)
-        queries = self.W_query(x)
-        attn_scores = queries @ keys.transpose((0, 2, 1))
-        attn_scores = jnp.where(self.mask == 1, -jnp.inf, attn_scores)
-        attn_weights = jax.nn.softmax(attn_scores / jnp.sqrt(keys.shape[-1]), axis=-1)
-        attn_weights = nn.Dropout(rate=self.dropout, deterministic=not training)(
-            attn_weights
-        )
-        context_vec = attn_weights @ values
-        return context_vec
-
-
-class MultiHeadAttentionWrapper(nn.Module):
-    num_heads: int
-    d_in: int
-    d_out: int
-    block_size: int
-    dropout: float
-    qkv_bias: bool = False
-
-    def setup(self):
-        self.heads = [
-            CausalAttention(
-                d_in=self.d_in,
-                d_out=self.d_out,
-                block_size=self.block_size,
-                dropout=self.dropout,
-                qkv_bias=self.qkv_bias,
-            )
-            for _ in range(self.num_heads)
-        ]
-
-    def __call__(self, x, training: bool):
-        return jnp.concatenate([head(x, training) for head in self.heads], axis=-1)
-
-
 class MultiHeadAttention(nn.Module):
     d_out: int
     block_size: int
@@ -90,7 +37,9 @@ class MultiHeadAttention(nn.Module):
         queries = queries.transpose((0, 2, 1, 3))
 
         attn_scores = queries @ keys.transpose((0, 1, 3, 2))
-
+        assert attn_scores.shape == (b, self.num_heads, num_tokens, num_tokens)
+        assert self.mask.shape == (self.block_size, self.block_size)
+        # mask out the upper triangular part of the matrix
         attn_scores = jnp.where(
             self.mask[:num_tokens, :num_tokens] == 1, -jnp.inf, attn_scores
         )

@@ -4,19 +4,29 @@ import jax.numpy as jnp
 from dataloader import create_dataset_v1
 from model import GPTModel, generate_text_simple
 import optax
+from dataclasses import dataclass
 
-GPT_CONFIG_124M = {
-    "vocab_size": 50257,  # TODO: change to 50304
-    "ctx_len": 256,  # gpt-2 uses 1024,
-    "emb_dim": 768,
-    "n_heads": 12,
-    "n_layers": 6,
-    "drop_rate": 0.1,
-    "qkv_bias": False,
-}
+import matplotlib.pyplot as plt
+import pickle
 
-model = GPTModel(cfg=GPT_CONFIG_124M)
-key = jax.random.PRNGKey(0)
+
+@dataclass
+class GPTConfig:
+    vocab_size: int = 50257
+    ctx_len: int = 256
+    emb_dim: int = 768
+    n_heads: int = 8
+    n_layers: int = 6
+    drop_rate: float = 0.1
+    qkv_bias: bool = False
+
+
+@dataclass
+class OptimizerConfig:
+    learning_rate: float = 4e-4
+    weight_decay: float = 0.1
+    batch_size: int = 4
+    epochs: int = 10
 
 
 def text_to_token_ids(text, tokenizer):
@@ -30,42 +40,9 @@ def token_ids_to_text(token_ids, tokenizer):
     return tokenizer.decode(flat.tolist())
 
 
-
-tokenizer = tiktoken.get_encoding("gpt2")
-
-with open("the-verdict.txt", "r", encoding="utf-8") as f:
-    text_data = f.read()
-train_ratio = 0.90
-total_tokens = len(tokenizer.encode(text_data, allowed_special={"<|endoftext|>"}))
-split_idx = int(train_ratio * len(text_data))
-train_data = text_data[:split_idx]
-val_data = text_data[split_idx:]
-
-train_loader = create_dataset_v1(
-    train_data,
-    batch_size=2,
-    max_length=GPT_CONFIG_124M["ctx_len"],
-    stride=GPT_CONFIG_124M["ctx_len"],
-    shuffle=True,
-    drop_last=True,
-)
-val_loader = create_dataset_v1(
-    val_data,
-    batch_size=2,
-    max_length=GPT_CONFIG_124M["ctx_len"],
-    stride=GPT_CONFIG_124M["ctx_len"],
-    shuffle=False,
-    drop_last=False,
-)
-
-if total_tokens * train_ratio < GPT_CONFIG_124M["ctx_len"]:
-    raise ValueError("The training dataset is too small for the context length")
-
-if total_tokens * (1 - train_ratio) < GPT_CONFIG_124M["ctx_len"]:
-    raise ValueError("The validation dataset is too small for the context length")
-
-
-def calc_loss_batch(variables, input_batch, target_batch, model, training=True, key=None):
+def calc_loss_batch(
+    variables, input_batch, target_batch, model, training=True, key=None
+):
     # TODO: dropout rng is valid?
     if training:
         logits = model.apply(
@@ -76,9 +53,8 @@ def calc_loss_batch(variables, input_batch, target_batch, model, training=True, 
         )
     else:
         logits = model.apply(variables, input_batch, training=False)
-    targets = jax.nn.one_hot(target_batch, logits.shape[-1])
-    loss = optax.losses.softmax_cross_entropy(
-        logits.reshape(-1, logits.shape[-1]), targets.reshape(-1, logits.shape[-1])
+    loss = optax.losses.softmax_cross_entropy_with_integer_labels(
+        logits=logits, labels=target_batch
     ).mean()
     return loss
 
@@ -134,10 +110,18 @@ def train_model_simple(
             global_step += 1
             if global_step % eval_freq == 0:
                 train_loss = calc_loss_loader(
-                    train_loader, model, variables=variables, training=False, num_batches=eval_iter
+                    train_loader,
+                    model,
+                    variables=variables,
+                    training=False,
+                    num_batches=eval_iter,
                 )
                 val_loss = calc_loss_loader(
-                    val_loader, model, variables=variables, training=False, num_batches=eval_iter
+                    val_loader,
+                    model,
+                    variables=variables,
+                    training=False,
+                    num_batches=eval_iter,
                 )
                 train_losses.append(train_loss)
                 val_losses.append(val_loss)
@@ -157,35 +141,10 @@ def generate_and_print_sample(model, variables, start_context, tokenizer):
         variables,
         batch,
         max_new_tokens=50,
-        context_size=GPT_CONFIG_124M["ctx_len"],
+        context_size=GPTConfig.ctx_len,
     )
     print(token_ids_to_text(token_ids, tokenizer).replace("\n", " "))
 
-
-optimizer = optax.adamw(4e-4, weight_decay=0.1)
-print("input shape:", jnp.ones((2, GPT_CONFIG_124M["ctx_len"]), dtype=jnp.int32).shape)
-variables = model.init(
-    key, jnp.ones((2, GPT_CONFIG_124M["ctx_len"]), dtype=jnp.int32), training=False
-)
-opt_state = optimizer.init(variables)
-
-num_epochs = 10
-train_losses, val_losses, track_tokens_seen, variables, opt_state = train_model_simple(
-    model,
-    train_loader,
-    val_loader,
-    num_epochs,
-    eval_freq=5,
-    eval_iter=5,
-    start_context="Every effort moves you",
-    tokenizer=tokenizer,
-    optimizer=optimizer,
-    optimizer_state=opt_state,
-    variables=variables,
-)
-
-
-import matplotlib.pyplot as plt
 
 def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     fig, ax1 = plt.subplots(figsize=(5, 3))
@@ -203,18 +162,70 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     plt.show()
 
 
-epochs_tensor = jnp.linspace(0, num_epochs, num=len(train_losses))
-plot_losses(
-    epochs_tensor,
-    jnp.array(track_tokens_seen),
-    jnp.array(train_losses),
-    jnp.array(val_losses),
-)
+if __name__ == "__main__":
+    model = GPTModel(cfg=GPTConfig())
+    key = jax.random.PRNGKey(0)
+    tokenizer = tiktoken.get_encoding("gpt2")
+    with open("the-verdict.txt", "r", encoding="utf-8") as f:
+        text_data = f.read()
+    train_ratio = 0.90
+    total_tokens = len(tokenizer.encode(text_data, allowed_special={"<|endoftext|>"}))
+    split_idx = int(train_ratio * len(text_data))
+    train_data = text_data[:split_idx]
+    val_data = text_data[split_idx:]
+    train_loader = create_dataset_v1(
+        train_data,
+        batch_size=OptimizerConfig.batch_size,
+        max_length=GPTConfig.ctx_len,
+        stride=GPTConfig.ctx_len,
+        shuffle=True,
+        drop_last=True,
+    )
+    val_loader = create_dataset_v1(
+        val_data,
+        batch_size=OptimizerConfig.batch_size,
+        max_length=GPTConfig.ctx_len,
+        stride=GPTConfig.ctx_len,
+        shuffle=False,
+        drop_last=False,
+    )
 
+    if total_tokens * train_ratio < GPTConfig.ctx_len:
+        raise ValueError("The training dataset is too small for the context length")
+    if total_tokens * (1 - train_ratio) < GPTConfig.ctx_len:
+        raise ValueError("The validation dataset is too small for the context length")
 
-# store variables
-import pickle
+    optimizer = optax.adamw(OptimizerConfig.learning_rate, OptimizerConfig.weight_decay)
+    variables = model.init(
+        key,
+        jnp.ones((OptimizerConfig.batch_size, GPTConfig.ctx_len), dtype=jnp.int32),
+        training=False,
+    )
+    opt_state = optimizer.init(variables)
+    train_losses, val_losses, track_tokens_seen, variables, opt_state = (
+        train_model_simple(
+            model,
+            train_loader,
+            val_loader,
+            num_epochs=OptimizerConfig.epochs,
+            eval_freq=5,
+            eval_iter=5,
+            start_context="Every effort moves you",
+            tokenizer=tokenizer,
+            optimizer=optimizer,
+            optimizer_state=opt_state,
+            variables=variables,
+        )
+    )
 
-with open("variables.pkl", "wb") as f:
-    pickle.dump(variables, f)
+    epochs_tensor = jnp.linspace(0, num_epochs, num=len(train_losses))
+    plot_losses(
+        epochs_tensor,
+        jnp.array(track_tokens_seen),
+        jnp.array(train_losses),
+        jnp.array(val_losses),
+    )
 
+    # store variables
+    with open("variables.pkl", "wb") as f:
+        pickle.dump(variables, f)

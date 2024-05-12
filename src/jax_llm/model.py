@@ -3,17 +3,18 @@ import jax
 import jax.numpy as jnp
 import flax.linen as nn
 from multihead_attention import MultiHeadAttention
+from dataclasses import dataclass
 
 
-GPT_CONFIG_124M = {
-    "vocab_size": 50257,  # TODO: change to 50304
-    "ctx_len": 1024,
-    "emb_dim": 768,
-    "n_heads": 12,
-    "n_layers": 12,
-    "drop_rate": 0.1,
-    "qkv_bias": False,
-}
+@dataclass
+class GPTConfig:
+    vocab_size: int = 50257
+    ctx_len: int = 256
+    emb_dim: int = 768
+    n_heads: int = 8
+    n_layers: int = 6
+    drop_rate: float = 0.1
+    qkv_bias: bool = False
 
 
 class LayerNorm(nn.Module):
@@ -33,13 +34,13 @@ class LayerNorm(nn.Module):
 
 
 class FeerForward(nn.Module):
-    cfg: dict
+    cfg: GPTConfig
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Dense(4 * self.cfg["emb_dim"])(x)
+        x = nn.Dense(4 * self.cfg.emb_dim)(x)
         x = nn.gelu(x)
-        x = nn.Dense(self.cfg["emb_dim"])(x)
+        x = nn.Dense(self.cfg.emb_dim)(x)
         return x
 
 
@@ -77,26 +78,38 @@ def print_gradients(model, variable, x):
 
 
 class TransformerBlock(nn.Module):
-    cfg: dict
+    cfg: GPTConfig
 
     def setup(self):
         self.att = MultiHeadAttention(
-            d_out=self.cfg["emb_dim"],
-            block_size=self.cfg["ctx_len"],
-            num_heads=self.cfg["n_heads"],
-            head_dim=self.cfg["emb_dim"] // self.cfg["n_heads"],
-            dropout_rate=self.cfg["drop_rate"],
-            qkv_bias=self.cfg["qkv_bias"],
+            d_out=self.cfg.emb_dim,
+            block_size=self.cfg.ctx_len,
+            num_heads=self.cfg.n_heads,
+            head_dim=self.cfg.emb_dim // self.cfg.n_heads,
+            dropout_rate=self.cfg.drop_rate,
+            qkv_bias=self.cfg.qkv_bias,
         )
         self.ff = FeerForward(cfg=self.cfg)
-        self.norm1 = LayerNorm(self.cfg["emb_dim"])
-        self.norm2 = LayerNorm(self.cfg["emb_dim"])
-        self.drop_resid = nn.Dropout(rate=self.cfg["drop_rate"])
+        self.norm1 = LayerNorm(self.cfg.emb_dim)
+        self.norm2 = LayerNorm(self.cfg.emb_dim)
+        self.drop_resid = nn.Dropout(rate=self.cfg.drop_rate)
 
+    @nn.compact
     def __call__(self, x, training: bool):
         shortcut = x
         x = self.norm1(x)
-        x = self.att(x, training)
+        # x = self.att(x, training)
+        x = x + nn.MultiHeadDotProductAttention(
+            num_heads=self.cfg.n_heads,
+            qkv_features=self.cfg.emb_dim // self.cfg.n_heads,
+            out_features=self.cfg.n_heads * (self.cfg.emb_dim // self.cfg.n_heads),
+            dropout_rate=self.cfg.drop_rate,
+        )(
+            x,
+            x,
+            mask=jnp.tril(jnp.ones((x.shape[-2], x.shape[-2]))),
+            deterministic=not training,
+        )
         x = self.drop_resid(x, deterministic=not training)
         x = x + shortcut
 
@@ -112,14 +125,16 @@ class GPTModel(nn.Module):
     cfg: dict
 
     def setup(self):
-        self.tok_emb = nn.Embed(self.cfg["vocab_size"], self.cfg["emb_dim"])
-        self.pos_emb = nn.Embed(self.cfg["ctx_len"], self.cfg["emb_dim"])
-        self.drop_emb = nn.Dropout(rate=self.cfg["drop_rate"])
+        self.tok_emb = nn.Embed(self.cfg.vocab_size, self.cfg.emb_dim)
+        self.pos_emb = nn.Embed(self.cfg.ctx_len, self.cfg.emb_dim)
+        self.drop_emb = nn.Dropout(rate=self.cfg.drop_rate)
 
-        self.trf_blocks = [TransformerBlock(cfg=self.cfg) for _ in range(self.cfg["n_layers"])]
+        self.trf_blocks = [
+            TransformerBlock(cfg=self.cfg) for _ in range(self.cfg.n_layers)
+        ]
 
-        self.final_norm = LayerNorm(self.cfg["emb_dim"])
-        self.out_head = nn.Dense(self.cfg["vocab_size"], use_bias=False)
+        self.final_norm = LayerNorm(self.cfg.emb_dim)
+        self.out_head = nn.Dense(self.cfg.vocab_size, use_bias=False)
 
     def __call__(self, x, training: bool):
         batch_size, seq_len = x.shape
@@ -148,6 +163,7 @@ def test_gpt_model():
     model = GPTModel(cfg=GPT_CONFIG_124M)
     variables = model.init(jax.random.PRNGKey(0), batch, training=False)
     assert 163009536 == model.get_total_params(variables)
+
 
 def generate_text_simple(model, variables, idx, max_new_tokens, context_size):
     for _ in range(max_new_tokens):
