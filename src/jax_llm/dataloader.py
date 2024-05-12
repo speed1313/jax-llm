@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import flax.linen as nn
 from torch.utils import data
 
+
 class GPTDatasetV1(data.Dataset):
     def __init__(self, txt, tokenizer, max_length, stride):
         self.tokenizer = tokenizer
@@ -25,21 +26,29 @@ class GPTDatasetV1(data.Dataset):
         return self.input_ids[idx], self.target_ids[idx]
 
 
-
 def numpy_collate(batch):
     if isinstance(batch[0], jnp.ndarray):
         return jnp.stack(batch)
-    elif isinstance(batch[0], (tuple,list)):
+    elif isinstance(batch[0], (tuple, list)):
         transposed = zip(*batch)
         return [numpy_collate(samples) for samples in transposed]
     else:
         return jnp.array(batch)
 
 
-def create_dataset_v1(txt, batch_size=4, max_length=256, stride=128, shuffle=True, drop_last=True):
+def create_dataset_v1(
+    txt, batch_size=4, max_length=256, stride=128, shuffle=True, drop_last=True
+):
     tokenizer = tiktoken.get_encoding("gpt2")
     dataset = GPTDatasetV1(txt, tokenizer, max_length, stride)
-    return data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=numpy_collate, drop_last=drop_last)
+    return data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        collate_fn=numpy_collate,
+        drop_last=drop_last,
+    )
+
 
 if __name__ == "__main__":
     with open("the-verdict.txt", "r", encoding="utf-8") as f:
