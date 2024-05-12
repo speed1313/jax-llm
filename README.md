@@ -1,6 +1,6 @@
 # jax-llm
 JAX implementation of Large Language Models.
-We can train GPT-2-like model with 青空文庫 ([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
+You can train GPT-2-like model with 青空文庫 ([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
 
 ## How to use
 
@@ -26,12 +26,12 @@ rye run python3 train_tokenizer.py --data_path "aozora.txt"
 rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl""
 ```
 Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`'s `GPTConfig` dataclass.
+You can increase the model size if you have a large computational resource.
 
 ### Generate text with the trained model.
 ```bash
 rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl" --prompt "深いおどろきにうたれて、" --temperature 0.7 --max_length 50 --top_k 30
 ```
-
 
 
 
@@ -50,7 +50,6 @@ Karpathy's nanoGPT is also very helpful. Karpathy's projects are always very int
 - https://github.com/karpathy/nanoGPT
 - https://github.com/openai/gpt-2
 - [Radford et al., Language Models are Unsupervised Multitask Learners, 2019](https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf)
-- https://github.com/cgarciae/nanoGPT-jax
 
 ### aozora bunko-clean dataset
 - akeyhero, https://qiita.com/akeyhero/items/b53eae1c0bc4d54e321f
