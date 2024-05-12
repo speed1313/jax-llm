@@ -32,20 +32,14 @@ class LayerNorm(nn.Module):
         return out
 
 
-class GELU(nn.Module):
-    def __call__(self, x):
-        return 0.5 * x * (1 + jnp.tanh(jnp.sqrt(2 / jnp.pi) * (x + 0.044715 * x**3)))
-
-
 class FeerForward(nn.Module):
     cfg: dict
 
     @nn.compact
-    def __call__(self, x, training: bool):
+    def __call__(self, x):
         x = nn.Dense(4 * self.cfg["emb_dim"])(x)
         x = nn.gelu(x)
         x = nn.Dense(self.cfg["emb_dim"])(x)
-        x = nn.Dropout(rate=self.cfg["drop_rate"])(x, deterministic=not training)
         return x
 
 
@@ -108,7 +102,7 @@ class TransformerBlock(nn.Module):
 
         shortcut = x
         x = self.norm2(x)
-        x = self.ff(x, training)
+        x = self.ff(x)
         x = self.drop_resid(x, deterministic=not training)
         x = x + shortcut
         return x
@@ -139,6 +133,21 @@ class GPTModel(nn.Module):
         logits = self.out_head(x)
         return logits
 
+    def get_total_params(self, variables):
+        return sum(x.size for x in jax.tree_leaves(variables))
+
+
+def test_gpt_model():
+    tokenizer = tiktoken.get_encoding("gpt2")
+    batch = []
+    txt1 = "Every effort moves you"
+    txt2 = "Every day holds a"
+    batch.append(jnp.array(tokenizer.encode(txt1)))
+    batch.append(jnp.array(tokenizer.encode(txt2)))
+    batch = jnp.stack(batch)
+    model = GPTModel(cfg=GPT_CONFIG_124M)
+    variables = model.init(jax.random.PRNGKey(0), batch, training=False)
+    assert 163009536 == model.get_total_params(variables)
 
 def generate_text_simple(model, variables, idx, max_new_tokens, context_size):
     for _ in range(max_new_tokens):

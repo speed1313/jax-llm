@@ -10,7 +10,7 @@ GPT_CONFIG_124M = {
     "ctx_len": 256,  # gpt-2 uses 1024,
     "emb_dim": 768,
     "n_heads": 12,
-    "n_layers": 1,
+    "n_layers": 6,
     "drop_rate": 0.1,
     "qkv_bias": False,
 }
@@ -30,96 +30,13 @@ def token_ids_to_text(token_ids, tokenizer):
     return tokenizer.decode(flat.tolist())
 
 
-start_context = "Every effort moves you"
+
 tokenizer = tiktoken.get_encoding("gpt2")
-batch = text_to_token_ids(start_context, tokenizer)
-key, subkey = jax.random.split(key)
-variables = model.init(subkey, batch, training=False)
-token_ids = generate_text_simple(
-    model=model,
-    variables=variables,
-    idx=batch,
-    max_new_tokens=10,
-    context_size=GPT_CONFIG_124M["ctx_len"],
-)
-print("Output:", token_ids_to_text(token_ids, tokenizer))
-# Output: Every effort moves you effects Turtle Turtle Turtle Turtle exped Turtle Turtle Turtle Turtle
-
-inputs = jnp.array(
-    [
-        [16833, 3626, 6100],  # ["every effort moves",
-        [40, 1107, 588],
-    ]
-)  # "I really like"]
-targets = jnp.array(
-    [
-        [3626, 6100, 345],  # [" effort moves you",
-        [588, 428, 11311],
-    ]
-)  # " really like chocolate"]
-
-logits = model.apply(variables, inputs, training=False)
-probas = jax.nn.softmax(logits, axis=-1)
-print("probas.shape:", probas.shape)
-
-token_ids = jnp.argmax(probas, axis=-1, keepdims=True)
-print("Token IDs:", token_ids)
-
-print(f"Targets batch 1: {token_ids_to_text(targets[0], tokenizer)}")
-print(token_ids[0][0])
-print(f"Outputs batch 1: {token_ids_to_text(token_ids[0][0], tokenizer)}")
-print(f"Outputs batch 1: {token_ids_to_text(token_ids[0][1], tokenizer)}")
-print(f"Outputs batch 1: {token_ids_to_text(token_ids[0][2], tokenizer)}")
-
-text_idx = 0
-target_probas_1 = probas[
-    text_idx, [0, 1, 2], targets[text_idx]
-]  # (batch_size, num_tokens, vocab_size)
-print("Text 1:", target_probas_1)
-
-text_idx = 1
-target_probas_2 = probas[
-    text_idx, [0, 1, 2], targets[text_idx]
-]  # (batch_size, num_tokens, vocab_size)
-print("Text 2:", target_probas_2)
-
-
-log_probas = jnp.log(jnp.concatenate([target_probas_1, target_probas_2], axis=0))
-print("Log probas:", log_probas)
-
-
-avg_log_probas = jnp.mean(log_probas)
-print("Average log probas:", avg_log_probas)
-
-neg_avg_log_probas = -avg_log_probas
-print("Negative average log probas:", neg_avg_log_probas)
-
-
-print("Logits shape", logits.reshape(-1, logits.shape[-1]).shape)
-print("Targets shape", targets.reshape(-1, 1).shape)
-# one hot targets
-targets = jax.nn.one_hot(targets, logits.shape[-1])
-print(targets.shape)
-loss = optax.losses.softmax_cross_entropy(
-    logits.reshape(-1, logits.shape[-1]), targets.reshape(-1, logits.shape[-1])
-).mean()
-print(loss)
-print(jnp.exp(loss))
 
 with open("the-verdict.txt", "r", encoding="utf-8") as f:
     text_data = f.read()
-
-print(text_data[:99])
-
-print(text_data[-99:])
-
-total_characters = len(text_data)
-total_tokens = len(tokenizer.encode(text_data))
-
-print(f"Total characters: {total_characters}")
-print(f"Total tokens: {total_tokens}")
-
 train_ratio = 0.90
+total_tokens = len(tokenizer.encode(text_data, allowed_special={"<|endoftext|>"}))
 split_idx = int(train_ratio * len(text_data))
 train_data = text_data[:split_idx]
 val_data = text_data[split_idx:]
@@ -147,34 +64,15 @@ if total_tokens * train_ratio < GPT_CONFIG_124M["ctx_len"]:
 if total_tokens * (1 - train_ratio) < GPT_CONFIG_124M["ctx_len"]:
     raise ValueError("The validation dataset is too small for the context length")
 
-print(len(train_data))
-print("Train data:")
-for x, y in train_loader:
-    print(x.shape, y.shape)
 
-print("Validation data:")
-for x, y in val_loader:
-    print(x.shape, y.shape)
-
-train_tokens = 0
-for input_batch, target_batch in train_loader:
-    train_tokens += input_batch.size
-val_tokens = 0
-for input_batch, target_batch in val_loader:
-    val_tokens += input_batch.size
-print(f"Train tokens: {train_tokens}")
-print(f"Validation tokens: {val_tokens}")
-print(f"Total tokens: {train_tokens + val_tokens}")
-
-
-def calc_loss_batch(variables, input_batch, target_batch, model, training=True):
+def calc_loss_batch(variables, input_batch, target_batch, model, training=True, key=None):
     # TODO: dropout rng is valid?
     if training:
         logits = model.apply(
             variables,
             input_batch,
             training=True,
-            rngs={"dropout": jax.random.PRNGKey(0)},
+            rngs={"dropout": key},
         )
     else:
         logits = model.apply(variables, input_batch, training=False)
@@ -186,7 +84,7 @@ def calc_loss_batch(variables, input_batch, target_batch, model, training=True):
 
 
 def calc_loss_loader(
-    data_loader, model, num_batches=None, variables=None, training=True
+    data_loader, model, num_batches=None, variables=None, training=True, key=None
 ):
     total_loss = 0.0
     if len(data_loader) == 0:
@@ -198,18 +96,12 @@ def calc_loss_loader(
     for i, (input_batch, target_batch) in enumerate(data_loader):
         if i < num_batches:
             loss = calc_loss_batch(
-                variables, input_batch, target_batch, model, training
+                variables, input_batch, target_batch, model, training, key
             )
             total_loss += loss
         else:
             break
     return total_loss / num_batches
-
-
-train_loss = calc_loss_loader(train_loader, model, variables=variables, training=True)
-val_loss = calc_loss_loader(val_loader, model, variables=variables, training=False)
-print(f"Train loss: {train_loss}")
-print(f"Validation loss: {val_loss}")
 
 
 def train_model_simple(
@@ -230,8 +122,9 @@ def train_model_simple(
     key = jax.random.PRNGKey(0)
     for epoch in range(num_epochs):
         for input_batch, target_batch in train_loader:
+            key, subkey = jax.random.split(key)
             grads = jax.grad(calc_loss_batch)(
-                variables, input_batch, target_batch, model, training=True
+                variables, input_batch, target_batch, model, training=True, key=subkey
             )
             updates, optimizer_state = optimizer.update(
                 grads, optimizer_state, variables
@@ -241,10 +134,10 @@ def train_model_simple(
             global_step += 1
             if global_step % eval_freq == 0:
                 train_loss = calc_loss_loader(
-                    train_loader, model, variables=variables, training=False
+                    train_loader, model, variables=variables, training=False, num_batches=eval_iter
                 )
                 val_loss = calc_loss_loader(
-                    val_loader, model, variables=variables, training=False
+                    val_loader, model, variables=variables, training=False, num_batches=eval_iter
                 )
                 train_losses.append(train_loss)
                 val_losses.append(val_loss)
@@ -270,7 +163,7 @@ def generate_and_print_sample(model, variables, start_context, tokenizer):
 
 
 optimizer = optax.adamw(4e-4, weight_decay=0.1)
-print(jnp.ones((2, GPT_CONFIG_124M["ctx_len"]), dtype=jnp.int32).shape)
+print("input shape:", jnp.ones((2, GPT_CONFIG_124M["ctx_len"]), dtype=jnp.int32).shape)
 variables = model.init(
     key, jnp.ones((2, GPT_CONFIG_124M["ctx_len"]), dtype=jnp.int32), training=False
 )
@@ -294,7 +187,6 @@ train_losses, val_losses, track_tokens_seen, variables, opt_state = train_model_
 
 import matplotlib.pyplot as plt
 
-
 def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     fig, ax1 = plt.subplots(figsize=(5, 3))
 
@@ -307,6 +199,7 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
     ax2 = ax1.twiny()
     ax2.plot(tokens_seen, train_losses, alpha=0)
     ax2.set_xlabel("Tokens seen")
+    plt.savefig("loss_curve.png")
     plt.show()
 
 

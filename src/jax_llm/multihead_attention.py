@@ -69,7 +69,6 @@ class MultiHeadAttention(nn.Module):
         self.W_query = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
         self.W_key = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
         self.W_value = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
-        self.W_out = nn.Dense(features=self.d_out, use_bias=self.qkv_bias)
         self.out_proj = nn.Dense(features=self.d_out)
         self.dropout = nn.Dropout(rate=self.dropout_rate)
         self.mask = jnp.triu(jnp.ones((self.block_size, self.block_size)), k=1)

@@ -11,7 +11,7 @@ GPT_CONFIG_124M = {
     "ctx_len": 256,  # gpt-2 uses 1024,
     "emb_dim": 768,
     "n_heads": 12,
-    "n_layers": 1,
+    "n_layers": 12,
     "drop_rate": 0.1,
     "qkv_bias": False,
 }
@@ -118,3 +118,54 @@ print_sampled_tokens(jnp.log(scaled_probas[2]))
 
 
 
+top_k = 3
+top_logits, top_pos = jax.lax.top_k(next_token_logits, top_k)
+print("Top logits:", top_logits)
+print("Top positions:", top_pos)
+
+new_logits = jnp.where(
+    jnp.isin(jnp.arange(len(vocab)), top_pos),
+    next_token_logits,
+    -jnp.inf,
+)
+
+print("New logits:", new_logits)
+topk_probas = jax.nn.softmax(new_logits, axis=-1)
+print("Top-k probabilities:", topk_probas)
+
+def generate(model, variables, key, idx, max_new_tokens, context_size, temperature, top_k=None):
+    for _ in range(max_new_tokens):
+        idx_cond = idx[:, -context_size:]
+        logits = model.apply(variables, idx_cond, training=False)
+        logits = logits[:, -1, :]
+
+        if top_k is not None:
+            top_logits, _ = jax.lax.top_k(logits, top_k)
+            min_val = top_logits[:, -1]
+            logits = jnp.where(logits < min_val, -jnp.inf, logits)
+
+        if temperature > 0.0:
+            logits = logits / temperature
+
+            idx_next = jax.random.categorical(key, logits, shape=(1,), axis=-1)
+            idx_next = idx_next[:, None]
+
+        else:
+            idx_next = jnp.argmax(logits, axis=-1, keepdims=True)
+
+        idx = jnp.concatenate([idx, idx_next], axis=-1)
+    return idx
+
+key, subkey = jax.random.split(key)
+token_ids = generate(
+    model=model,
+    variables=variables,
+    key=subkey,
+    idx=batch,
+    max_new_tokens=15,
+    context_size=GPT_CONFIG_124M["ctx_len"],
+    temperature=1.4,
+    top_k=25,
+)
+
+print("Output:", token_ids_to_text(token_ids, tokenizer))
