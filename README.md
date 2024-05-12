@@ -28,7 +28,7 @@ rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --mode
 ```
 
 
-## Acknowledgement
+## Acknowledgements
 Rasbt's implementation and explanation is very helpful. I learned a lot from this work. Thank you very much!
 - [rasbt, Build a Large Language Model (From Scratch)](https://github.com/rasbt/LLMs-from-scratch)
 
