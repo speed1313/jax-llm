@@ -14,7 +14,7 @@ rye run python3 prepare_aozora.py --book_num 1000
 This command generates a single text file. Currently, only 1000 books (9359840 Tokens) are used.
 
 > [!NOTE]
-> You can use any dataset for training by simply preparing a suitable txt file, without executing this command.
+> You can use any dataset for training by simply preparing a suitable txt file, without executing this command. For example, [Wikitext-JA's Featured Contents(1037109 Tokens)](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja/Featured_Contents.txt) is a good choice.
 
 ###  Train the BPE (Byte Pair Encoding) tokenizer.
 Specify the path to the text file created in the previous step. This process takes approximately 20 seconds.
