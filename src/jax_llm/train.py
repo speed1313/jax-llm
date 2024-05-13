@@ -20,7 +20,7 @@ class GPTConfig:
     emb_dim: int = 128
     n_heads: int = 4
     n_layers: int = 4
-    drop_rate: float = 0.1
+    drop_rate: float = 0.
     qkv_bias: bool = False
 
 
