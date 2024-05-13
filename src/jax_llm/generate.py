@@ -9,8 +9,8 @@ import pickle
 
 
 @click.command()
-@click.option("--tokenizer_path", type=str, default="data/tokenizer-aozora.json")
-@click.option("--variables_path", type=str, default="model/aozora_variables.pkl")
+@click.option("--tokenizer_path", type=str, default="data/tokenizer.json")
+@click.option("--variables_path", type=str, default="model/variables.pkl")
 @click.option("--prompt", type=str, default="私は")
 @click.option("--max_new_tokens", type=int, default=30)
 @click.option("--temperature", type=float, default=1.4)
@@ -23,7 +23,9 @@ def main(
     temperature: float,
     top_k: int,
 ):
-    model = GPTModel(cfg=GPTConfig())
+    from model import NanoLM
+    #model = GPTModel(cfg=GPTConfig())
+    model = NanoLM(vocab_size=50304)
     with open(variables_path, "rb") as f:
         variables = pickle.load(f)
 

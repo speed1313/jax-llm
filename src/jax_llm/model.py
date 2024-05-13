@@ -2,10 +2,9 @@ import tiktoken
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
-from multihead_attention import MultiHeadAttention
 from dataclasses import dataclass
 from utils import AbstractTokenizer, generate
-
+import functools
 
 @dataclass
 class GPTConfig:
@@ -16,22 +15,6 @@ class GPTConfig:
     n_layers: int = 6
     drop_rate: float = 0.1
     qkv_bias: bool = False
-
-
-class LayerNorm(nn.Module):
-    emb_dim: int
-
-    def setup(self):
-        self.eps = 1e-5
-        self.scale = self.param("scale", nn.initializers.ones, (self.emb_dim,))
-        self.bias = self.param("bias", nn.initializers.zeros, (self.emb_dim,))
-
-    def __call__(self, x):
-        mean = jnp.mean(x, axis=-1, keepdims=True)
-        var = jnp.var(x, axis=-1, keepdims=True)  # for compatibility with gpt2
-        out = (x - mean) / jnp.sqrt(var + self.eps)
-        out = out * self.scale + self.bias
-        return out
 
 
 class FeerForward(nn.Module):
@@ -51,8 +34,8 @@ class TransformerBlock(nn.Module):
     def setup(self):
         self.head_dim = self.cfg.emb_dim // self.cfg.n_heads
         self.ff = FeerForward(cfg=self.cfg)
-        self.norm1 = LayerNorm(self.cfg.emb_dim)
-        self.norm2 = LayerNorm(self.cfg.emb_dim)
+        self.norm1 = nn.LayerNorm()
+        self.norm2 = nn.LayerNorm()
         self.drop_resid = nn.Dropout(rate=self.cfg.drop_rate)
 
     @nn.compact
@@ -112,6 +95,67 @@ class GPTModel(nn.Module):
         logits = self.out_head(x)
         return logits
 
+
+class NanoLM(nn.Module):
+    """NanoLM model."""
+    vocab_size: int
+    num_layers: int = 4
+    num_heads: int = 4
+    head_size: int = 32
+    dropout_rate: float = 0.2
+    embed_size: int = 128
+    block_size: int = 64
+
+    @nn.compact
+    def __call__(self, x, training: bool):
+        seq_len = x.shape[1]
+
+        x = nn.Embed(self.vocab_size, self.embed_size)(x) + nn.Embed(
+            self.block_size, self.embed_size
+        )(jnp.arange(seq_len))
+        for _ in range(self.num_layers):
+            x_norm = nn.LayerNorm()(x)
+            x = x + nn.MultiHeadDotProductAttention(
+                num_heads=self.num_heads,
+                qkv_features=self.head_size,
+                out_features=self.head_size * self.num_heads,
+                dropout_rate=self.dropout_rate,
+            )(
+                x_norm,
+                x_norm,
+                mask=jnp.tril(jnp.ones((x.shape[-2], x.shape[-2]))),
+                deterministic=not training,
+            )
+
+            x = x + nn.Sequential([
+                nn.Dense(4 * self.embed_size),
+                nn.relu,
+                nn.Dropout(self.dropout_rate, deterministic=not training),
+                nn.Dense(self.embed_size),
+            ])(nn.LayerNorm()(x))
+
+        x = nn.LayerNorm()(x)
+        return nn.Dense(self.vocab_size)(x)
+
+    @functools.partial(jax.jit, static_argnames=("self", "length"))
+    def generate(self, rng, params, length):
+        def _scan_generate(carry, _):
+            random_key, context = carry
+            logits = self.apply(params, context, training=False)
+            rng, rng_subkey = jax.random.split(random_key)
+            new_token = jax.random.categorical(
+                rng_subkey, logits[:, -1, :], axis=-1, shape=(1, 1)
+            )
+            context = jnp.concatenate([context[:, 1:], new_token], axis=1)
+            return (rng, context), new_token
+
+        _, new_tokens = jax.lax.scan(
+            _scan_generate,
+            (rng, jnp.zeros((1, self.block_size), dtype=jnp.int32)),
+            (),
+            length=length,
+        )
+        return new_tokens
 
 if __name__ == "__main__":
     tokenizer = AbstractTokenizer(tiktoken.get_encoding("gpt2"), "gpt2")

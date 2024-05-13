@@ -17,7 +17,7 @@ dependencies = [
     "datasets>=2.19.1",
     "tokenizers>=0.19.1",
     "click>=8.1.7",
-    "jax[cuda12]>=0.4.13",
+    "tensorflow_datasets>=4.9.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

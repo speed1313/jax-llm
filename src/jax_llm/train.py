@@ -1,7 +1,7 @@
 import tiktoken
 import jax
 import jax.numpy as jnp
-from dataloader import create_dataset_v1
+from dataloader import create_jax_dataset
 from model import GPTModel
 import optax
 from dataclasses import dataclass
@@ -10,123 +10,22 @@ import pickle
 import click
 from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, generate
 from tokenizers import Tokenizer
+
 jax.config.update("jax_debug_nans", True)
 
 
 @dataclass
 class GPTConfig:
-    vocab_size: int = 50304
+    vocab_size: int = 30000
     ctx_len: int = 64
     emb_dim: int = 128
     n_heads: int = 4
     n_layers: int = 4
-    drop_rate: float = 0.
+    drop_rate: float = 0.0
     qkv_bias: bool = False
 
 
-def calc_loss_train(
-    variables, input_batch, target_batch, model, training=True, key=None
-):
-    @jax.jit
-    def loss_fn(variables):
-        logits = model.apply(
-            variables,
-            input_batch,
-            training=True,
-            rngs={"dropout": key},
-        )
-        return optax.losses.softmax_cross_entropy_with_integer_labels(
-            logits=logits, labels=target_batch
-        ).mean()
-    loss = loss_fn(variables)
-    return loss
 
-
-def calc_loss_val(
-    variables, input_batch, target_batch, model, training=False, key=None
-):
-    @jax.jit
-    def loss_fn(variables):
-        logits = model.apply(variables, input_batch, training=False)
-        return optax.losses.softmax_cross_entropy_with_integer_labels(
-            logits=logits, labels=target_batch
-        ).mean()
-    loss = loss_fn(variables)
-    return loss
-
-
-def calc_loss_loader(
-    data_loader, model, num_batches=None, variables=None, training=False, key=None
-):
-    total_loss = 0.0
-    if len(data_loader) == 0:
-        return float("nan")
-    elif num_batches is None:
-        num_batches = len(data_loader)
-    else:
-        num_batches = min(num_batches, len(data_loader))
-    for i, (input_batch, target_batch) in enumerate(data_loader):
-        if i < num_batches:
-            loss = calc_loss_val(
-                variables, input_batch, target_batch, model, training=training, key=key
-            )
-            total_loss += loss
-        else:
-            break
-    return total_loss / num_batches
-
-
-def train_model_simple(
-    model,
-    train_loader,
-    val_loader,
-    num_epochs,
-    eval_freq,
-    eval_iter,
-    start_context,
-    tokenizer,
-    optimizer,
-    optimizer_state,
-    variables,
-):
-    train_losses, val_losses, track_tokens_seen = [], [], []
-    tokens_seen, global_step = 0, -1
-    key = jax.random.PRNGKey(0)
-    for epoch in range(num_epochs):
-        for input_batch, target_batch in train_loader:
-            key, subkey = jax.random.split(key)
-            grads = jax.grad(calc_loss_train)(
-                variables, input_batch, target_batch, model, training=True, key=subkey
-            )
-            updates, optimizer_state = optimizer.update(
-                grads, optimizer_state, variables
-            )
-            variables = optax.apply_updates(variables, updates)
-            tokens_seen += input_batch.size
-            global_step += 1
-            if global_step % eval_freq == 0:
-                train_loss = calc_loss_loader(
-                    train_loader,
-                    model,
-                    variables=variables,
-                    training=False,
-                    num_batches=eval_iter,
-                )
-                val_loss = calc_loss_loader(
-                    val_loader,
-                    model,
-                    variables=variables,
-                    training=False,
-                    num_batches=eval_iter,
-                )
-                train_losses.append(train_loss)
-                val_losses.append(val_loss)
-                track_tokens_seen.append(tokens_seen)
-                print(
-                    f"Ep {epoch+1} (Step {global_step:06d}): Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}"
-                )
-                #generate_and_print_sample(model, variables, start_context, tokenizer)
-    return train_losses, val_losses, track_tokens_seen, variables, optimizer_state
 
 
 def generate_and_print_sample(model, variables, start_context, tokenizer):
@@ -159,12 +58,12 @@ def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
 
 
 @click.command()
-@click.option("--data_path", type=str, default="the-verdict.txt")
-@click.option("--tokenizer_path", type=str, default="data/tokenizer-aozora.json")
-@click.option("--batch_size", type=int, default=16)
+@click.option("--data_path", type=str, default="input.txt")
+@click.option("--tokenizer_path", type=str, default="data/tokenizer.json")
+@click.option("--batch_size", type=int, default=128)
 @click.option("--epochs", type=int, default=1)
-@click.option("--learning_rate", type=float, default=6e-4)
-@click.option("--weight_decay", type=float, default=0.1)
+@click.option("--learning_rate", type=float, default=1e-3)
+@click.option("--weight_decay", type=float, default=0.0)
 def main(
     data_path: str,
     tokenizer_path: str,
@@ -173,7 +72,97 @@ def main(
     learning_rate: float,
     weight_decay: float,
 ):
-    model = GPTModel(cfg=GPTConfig())
+    #model = GPTModel(cfg=GPTConfig())
+    from model import NanoLM
+    model = NanoLM(vocab_size=30000)
+    # TODO: jit the loss function
+    @jax.jit
+    def loss_fn(variables, input_batch, target_batch, key=None):
+        logits = model.apply(
+            variables,
+            input_batch,
+            training=True,
+            rngs={"dropout": key},
+        )
+        return optax.losses.softmax_cross_entropy_with_integer_labels(
+            logits=logits, labels=target_batch
+        ).mean()
+
+    def calc_loss_train(variables, input_batch, target_batch, training=True, key=None):
+        loss = loss_fn(variables, input_batch, target_batch, key=key)
+        return loss
+
+    def step(input_batch, target_batch, variables, optimizer, optimizer_state, key):
+        key, subkey = jax.random.split(key)
+        grads = jax.grad(calc_loss_train)(
+            variables, input_batch, target_batch, training=True, key=subkey
+        )
+        updates, optimizer_state = optimizer.update(
+            grads, optimizer_state, variables
+        )
+        variables = optax.apply_updates(variables, updates)
+        return variables, optimizer_state, key
+
+    def train_model_simple(
+        model,
+        X_train,
+        Y_train,
+        X_val,
+        Y_val,
+        num_epochs,
+        eval_freq,
+        eval_iter,
+        start_context,
+        tokenizer,
+        optimizer,
+        optimizer_state,
+        variables,
+        batch_size,
+    ):
+        train_losses, val_losses, track_tokens_seen = [], [], []
+        tokens_seen, global_step = 0, -1
+        key = jax.random.PRNGKey(0)
+        for epoch in range(num_epochs):
+            key, subkey = jax.random.split(key)
+            perm = jax.random.permutation(subkey, len(X_train))
+            for i in range(0, len(X_train), batch_size):
+                input_batch = X_train[perm[i : i + batch_size]]
+                target_batch = Y_train[perm[i : i + batch_size]]
+                variables, optimizer_state, subkey = step(
+                    input_batch,
+                    target_batch,
+                    variables,
+                    optimizer,
+                    optimizer_state,
+                    key,
+                )
+                tokens_seen += input_batch.size
+                global_step += 1
+                if global_step % eval_freq == 0:
+                    train_loss = calc_loss_train(
+                        variables,
+                        input_batch,
+                        target_batch,
+                        training=False,
+                        key=subkey,
+                    )
+                    val_loss = calc_loss_train(
+                        variables,
+                        input_batch,
+                        target_batch,
+                        training=False,
+                        key=subkey,
+                    )
+                    train_losses.append(train_loss)
+                    val_losses.append(val_loss)
+                    track_tokens_seen.append(tokens_seen)
+                    print(
+                        f"Ep {epoch+1} (Step {global_step:06d}): Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}"
+                    )
+                    # generate_and_print_sample(model, variables, start_context, tokenizer)
+        return train_losses, val_losses, track_tokens_seen, variables, optimizer_state
+
+
     key = jax.random.PRNGKey(0)
 
     if tokenizer_path == "gpt2":
@@ -191,24 +180,27 @@ def main(
     split_idx = int(train_ratio * len(text_data))
     train_data = text_data[:split_idx]
     val_data = text_data[split_idx:]
-    train_loader = create_dataset_v1(
+    X_train, Y_train = create_jax_dataset(
         train_data,
         tokenizer,
         batch_size,
-        max_length=GPTConfig.ctx_len,
-        stride=GPTConfig.ctx_len,
-        shuffle=True,
-        drop_last=True,
+        GPTConfig.ctx_len,
+        GPTConfig.ctx_len,
+        False,
+        True,
     )
-    val_loader = create_dataset_v1(
+    print("Tokenized train data shape:", X_train.shape, Y_train.shape)
+
+    X_val, Y_val = create_jax_dataset(
         val_data,
         tokenizer,
         batch_size,
-        max_length=GPTConfig.ctx_len,
-        stride=GPTConfig.ctx_len,
-        shuffle=False,
-        drop_last=False,
+        GPTConfig.ctx_len,
+        GPTConfig.ctx_len,
+        False,
+        True,
     )
+    print("Tokenized val data shape:", X_val.shape, Y_val.shape)
 
     if total_tokens * train_ratio < GPTConfig.ctx_len:
         raise ValueError("The training dataset is too small for the context length")
@@ -228,8 +220,10 @@ def main(
     train_losses, val_losses, track_tokens_seen, variables, opt_state = (
         train_model_simple(
             model,
-            train_loader,
-            val_loader,
+            X_train,
+            Y_train,
+            X_val,
+            Y_val,
             num_epochs=epochs,
             eval_freq=5,
             eval_iter=5,
@@ -238,6 +232,7 @@ def main(
             optimizer=optimizer,
             optimizer_state=opt_state,
             variables=variables,
+            batch_size=batch_size,
         )
     )
 
@@ -250,7 +245,7 @@ def main(
     )
 
     # store variables
-    with open(f"model/{data_path.split('.')[0]}_variables.pkl", "wb") as f:
+    with open("model/variables.pkl", "wb") as f:
         pickle.dump(variables, f)
     print("Variables stored")
 

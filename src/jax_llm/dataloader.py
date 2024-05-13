@@ -1,4 +1,3 @@
-import tiktoken
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
@@ -21,7 +20,9 @@ class GPTDatasetV1(data.Dataset):
             target_chunk = jax.lax.dynamic_slice(token_ids, (i + 1,), (max_length,))
             return input_chunk, target_chunk
 
-        input_chunks, target_chunks = jax.vmap(chunk_processing)(jnp.arange(0, len(token_ids) - max_length, stride))
+        input_chunks, target_chunks = jax.vmap(chunk_processing)(
+            jnp.arange(0, len(token_ids) - max_length, stride)
+        )
 
         self.input_ids = jnp.array(input_chunks)
         self.target_ids = jnp.array(target_chunks)
@@ -31,8 +32,6 @@ class GPTDatasetV1(data.Dataset):
 
     def __getitem__(self, idx):
         return self.input_ids[idx], self.target_ids[idx]
-
-
 
 
 def numpy_collate(batch):
@@ -63,6 +62,7 @@ def create_dataset_v1(
         drop_last=drop_last,
     )
 
+
 def create_jax_dataset(
     txt,
     tokenizer: AbstractTokenizer,
@@ -81,10 +81,12 @@ def create_jax_dataset(
         target_chunk = jax.lax.dynamic_slice(token_ids, (i + 1,), (max_length,))
         return input_chunk, target_chunk
 
-    input_chunks, target_chunks = jax.vmap(chunk_processing)(jnp.arange(0, len(token_ids) - max_length, stride))
+    input_chunks, target_chunks = jax.vmap(chunk_processing)(
+        jnp.arange(0, len(token_ids) - max_length, stride)
+    )
     if drop_last:
-        input_chunks = input_chunks[:len(input_chunks) // batch_size * batch_size]
-        target_chunks = target_chunks[:len(target_chunks) // batch_size * batch_size]
+        input_chunks = input_chunks[: len(input_chunks) // batch_size * batch_size]
+        target_chunks = target_chunks[: len(target_chunks) // batch_size * batch_size]
 
     jnp.array(input_chunks)
     jnp.array(target_chunks)
@@ -93,10 +95,14 @@ def create_jax_dataset(
 
 if __name__ == "__main__":
     import time
+
     with open("aozora.txt", "r", encoding="utf-8") as f:
         raw_text = f.read()
     from tokenizers import Tokenizer
-    tokenizer = AbstractTokenizer(Tokenizer.from_file("data/tokenizer-aozora.json"), "aozora")
+
+    tokenizer = AbstractTokenizer(
+        Tokenizer.from_file("data/tokenizer-aozora.json"), "aozora"
+    )
     encoded_text = tokenizer.encode(raw_text)
 
     vocab_size = 50304
@@ -111,7 +117,7 @@ if __name__ == "__main__":
     pos_embedding_variables = pos_embedding_layer.init(
         jax.random.PRNGKey(0), jnp.arange(max_length)
     )
-
+    """
     dataloader = create_dataset_v1(
         raw_text,
         tokenizer,
@@ -135,11 +141,13 @@ if __name__ == "__main__":
     end_time = time.time()
     torch_time = end_time - start_time
     print(input_embeddings.shape)
+    """
+    batch_size = 256
 
     X, Y = create_jax_dataset(
         raw_text,
         tokenizer,
-        batch_size=8,
+        batch_size,
         max_length=4,
         stride=4,
         shuffle=True,
@@ -160,11 +168,11 @@ if __name__ == "__main__":
     # One hot encode the target
     Y = jax.nn.one_hot(Y, vocab_size)
     print(Y.shape)
-    start_time = time.time()
-    for batch in range(0, len(X), 8):
-        #print(X[batch:batch+8].shape)
-        #print(Y[batch:batch+8].shape)
-        inputs, targets = X[batch:batch+8], Y[batch:batch+8]
+
+    # jit version
+    @jax.jit
+    def embeded_fn(batch):
+        inputs = batch
         token_embeddings = token_embedding_layer.apply(
             token_embedding_variables, inputs
         )
@@ -172,8 +180,16 @@ if __name__ == "__main__":
             pos_embedding_variables, jnp.arange(max_length)
         )
         input_embeddings = token_embeddings + pos_embeddings
+        return input_embeddings
+
+    def embeded(X):
+        for batch in range(0, len(X), batch_size):
+            emb = embeded_fn(X[batch : batch + batch_size])
+        return emb
+
+    start_time = time.time()
+    input_embeddings = embeded(X)
     end_time = time.time()
+    torch_time = end_time - start_time
     print(input_embeddings.shape)
-    jax_time = end_time - start_time
-    print(f"PyTorch time: {torch_time}")
-    print(f"JAX time: {jax_time}")
+    print(f"JAX jit time: {end_time - start_time}")
