@@ -31,22 +31,13 @@ Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`.
 
 ### Generate text with the trained model.
 ```bash
-rye run python3 generate.py  --prompt "深いおどろきにうたれて、" --temperature 0.7 --max_length 50 --top_k 30
+rye run python3 generate.py  --prompt "深いおどろきにうたれて、" --temperature 0.7 --max_new_tokens 50 --top_k 30
 ```
 
 
 
-## Acknowledgements
-Rasbt's implementation and explanation is very helpful. I learned a lot from this work. Thank you very much!
-- [rasbt, Build a Large Language Model (From Scratch)](https://github.com/rasbt/LLMs-from-scratch)
-
-Special thanks to akeyhero for providing the aozora-clean dataset!
-- [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
-
-Karpathy's nanoGPT is also very helpful. Karpathy's projects are always very interesting. Thank you very much!
-- [karpathy, nanoGPT](https://github.com/karpathy/nanoGPT)
-
 ## References
+Special thanks to the following repositories, papers, and datasets.
 - https://github.com/rasbt/LLMs-from-scratch
 - https://github.com/karpathy/nanoGPT
 - https://github.com/openai/gpt-2
@@ -56,3 +47,4 @@ Karpathy's nanoGPT is also very helpful. Karpathy's projects are always very int
 - akeyhero, https://qiita.com/akeyhero/items/b53eae1c0bc4d54e321f
 - [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
 - 青空文庫, https://www.aozora.gr.jp/
+- https://github.com/lxaw/shijin
