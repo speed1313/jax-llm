@@ -9,9 +9,9 @@ Model implementation is based on [NanoLM](https://optax.readthedocs.io/en/latest
 
 ```bash
 cd src/jax_llm
-rye run python3 prepare_aozora.py --book_num 1000
+rye run python3 prepare_aozora.py --book_num 3000
 ```
-This command generates a single text file. Currently, only 1000 books (9359840 Tokens) are used.
+This command generates a single text file. Currently, only 1000/3000 books (9359840/20956840 Tokens) are used.
 
 > [!NOTE]
 > You can use any dataset for training by simply preparing a suitable txt file, without executing this command. For example, [Wikitext-JA's Featured Contents(1037109 Tokens)](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja/Featured_Contents.txt) is a good choice.
