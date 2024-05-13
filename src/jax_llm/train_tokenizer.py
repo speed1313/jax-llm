@@ -6,7 +6,7 @@ import click
 
 
 @click.command()
-@click.option("--data_path", type=str, default="aozora.txt")
+@click.option("--data_path", type=str, default="input.txt")
 def main(data_path: str):
     tokenizer = Tokenizer(BPE(unk_token="<|endoftext|>"))
     tokenizer.pre_tokenizer = Whitespace()
@@ -17,6 +17,11 @@ def main(data_path: str):
         files, trainer
     )  # default vocab_size=30000 (ref: https://github.com/huggingface/tokenizers/blob/25aee8b88c8de3c5a52e2f9cb6281d6df00ad516/bindings/python/py_src/tokenizers/implementations/byte_level_bpe.py#L82)
     tokenizer.save("data/tokenizer.json")
+
+    # print token num
+    with open(data_path, "r", encoding="utf-8") as f:
+        text_data = f.read()
+    print("Total tokens: ", len(tokenizer.encode(text_data)))
 
 
 if __name__ == "__main__":

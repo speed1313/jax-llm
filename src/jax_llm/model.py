@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from utils import AbstractTokenizer, generate
 import functools
 
+
 @dataclass
 class GPTConfig:
     vocab_size: int = 50257
@@ -80,7 +81,7 @@ class GPTModel(nn.Module):
             TransformerBlock(cfg=self.cfg) for _ in range(self.cfg.n_layers)
         ]
 
-        self.final_norm = LayerNorm(self.cfg.emb_dim)
+        self.final_norm = nn.LayerNorm(self.cfg.emb_dim)
         self.out_head = nn.Dense(self.cfg.vocab_size, use_bias=False)
 
     def __call__(self, x, training: bool):
@@ -98,7 +99,8 @@ class GPTModel(nn.Module):
 
 class NanoLM(nn.Module):
     """NanoLM model."""
-    vocab_size: int
+
+    vocab_size: int = 30000
     num_layers: int = 4
     num_heads: int = 4
     head_size: int = 32
@@ -127,12 +129,14 @@ class NanoLM(nn.Module):
                 deterministic=not training,
             )
 
-            x = x + nn.Sequential([
-                nn.Dense(4 * self.embed_size),
-                nn.relu,
-                nn.Dropout(self.dropout_rate, deterministic=not training),
-                nn.Dense(self.embed_size),
-            ])(nn.LayerNorm()(x))
+            x = x + nn.Sequential(
+                [
+                    nn.Dense(4 * self.embed_size),
+                    nn.relu,
+                    nn.Dropout(self.dropout_rate, deterministic=not training),
+                    nn.Dense(self.embed_size),
+                ]
+            )(nn.LayerNorm()(x))
 
         x = nn.LayerNorm()(x)
         return nn.Dense(self.vocab_size)(x)
@@ -156,6 +160,7 @@ class NanoLM(nn.Module):
             length=length,
         )
         return new_tokens
+
 
 if __name__ == "__main__":
     tokenizer = AbstractTokenizer(tiktoken.get_encoding("gpt2"), "gpt2")

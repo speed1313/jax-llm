@@ -30,7 +30,7 @@ def token_ids_to_text(token_ids, tokenizer: AbstractTokenizer):
 
 def generate(
     model,
-    variables,
+    params,
     key,
     idx,
     max_new_tokens: int,
@@ -45,7 +45,7 @@ def generate(
     """
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -context_size:]
-        logits = model.apply(variables, idx_cond, training=False)
+        logits = model.apply(params, idx_cond, training=False)
         logits = logits[:, -1, :]
 
         if top_k is not None:

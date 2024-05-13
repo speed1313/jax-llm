@@ -1,6 +1,7 @@
 # jax-llm
 JAX implementation of Large Language Models.
 You can train GPT-2-like model with 青空文庫 ([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
+Model implementation is based on [NanoLM](https://optax.readthedocs.io/en/latest/_collections/examples/nanolm.html).
 
 ## How to use
 
@@ -18,19 +19,19 @@ This command generates a single text file. Currently, only 1000 books (9359840 T
 ###  Train the BPE (Byte Pair Encoding) tokenizer.
 Specify the path to the text file created in the previous step. This process takes approximately 20 seconds.
 ```bash
-rye run python3 train_tokenizer.py --data_path "aozora.txt"
+rye run python3 train_tokenizer.py --data_path "input.txt"
 ```
 
-###  Train GPT-2-like model with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/Aozorabunko-clean) dataset.
+###  Train [NanoLM model](https://optax.readthedocs.io/en/latest/_collections/examples/nanolm.html) with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/Aozorabunko-clean) dataset.
 ```bash
-rye run python3 train.py --data_path "aozora.txt" --tokenizer_path "data/tokenizer-aozora.json" --batch_size 32 --epochs 1
+rye run python3 train.py
 ```
-Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`'s `GPTConfig` dataclass.
-You can increase the model size if you have a large computational resource.
+Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`.
+
 
 ### Generate text with the trained model.
 ```bash
-rye run python3 generate.py --tokenizer_path "data/tokenizer-aozora.json" --model_path "model/aozora_variables.pkl" --prompt "深いおどろきにうたれて、" --temperature 0.7 --max_length 50 --top_k 30
+rye run python3 generate.py  --prompt "深いおどろきにうたれて、" --temperature 0.7 --max_length 50 --top_k 30
 ```
 
 

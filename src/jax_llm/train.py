@@ -1,254 +1,199 @@
-import tiktoken
 import jax
 import jax.numpy as jnp
-from dataloader import create_jax_dataset
-from model import GPTModel
+from matplotlib import pyplot as plt
 import optax
-from dataclasses import dataclass
-import matplotlib.pyplot as plt
-import pickle
-import click
-from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, generate
+from utils import AbstractTokenizer
 from tokenizers import Tokenizer
+from model import NanoLM
+import pickle
+import json
 
-jax.config.update("jax_debug_nans", True)
+# platform check
+print("JAX running on", jax.devices()[0].platform.upper())
+
+# @markdown Random seed:
+SEED = 42  # @param{type:"integer"}
+# @markdown Learning rate passed to the optimizer:
+LEARNING_RATE = 1e-4  # @param{type:"number"}
+# @markdown Batch size:
+BATCH_SIZE = 256  # @param{type:"integer"}
+# @markdown Numer of training iterations:
+N_ITERATIONS = 50000  # @param{type:"integer"}
+# @markdown Number of training iterations between two consecutive evaluations:
+N_FREQ_EVAL = 1000  # @param{type:"integer"}
+# @markdown Rate for dropout in the transformer model
+DROPOUT_RATE = 0.2  # @param{type:"number"}
+# @markdown Context window for the transformer model
+BLOCK_SIZE = 64  # @param{type:"integer"}
+# @markdown Number of layer for the transformer model
+NUM_LAYERS = 6  # @param{type:"integer"}
+# @markdown Size of the embedding for the transformer model
+EMBED_SIZE = 256  # @param{type:"integer"}
+# @markdown Number of heads for the transformer model
+NUM_HEADS = 8  # @param{type:"integer"}
+# @markdown Size of the heads for the transformer model
+HEAD_SIZE = 32  # @param{type:"integer"}
 
 
-@dataclass
-class GPTConfig:
-    vocab_size: int = 30000
-    ctx_len: int = 64
-    emb_dim: int = 128
-    n_heads: int = 4
-    n_layers: int = 4
-    drop_rate: float = 0.0
-    qkv_bias: bool = False
+key = jax.random.PRNGKey(0)
+
+tokenizer = AbstractTokenizer(
+    Tokenizer.from_file("data/tokenizer.json"), "data/tokenizer.json"
+)
+print("Tokenizer loaded")
+with open("input.txt", "r", encoding="utf-8") as f:
+    text_data = f.read()
+train_ratio = 0.90
+total_tokens = len(tokenizer.encode(text_data))
+split_idx = int(train_ratio * len(text_data))
+train_data = text_data[:split_idx]
+train_data = tokenizer.encode(train_data)
+train_data = jnp.array(train_data)
+eval_data = text_data[split_idx:]
+eval_data = tokenizer.encode(eval_data)
+eval_data = jnp.array(eval_data)
 
 
+dynamic_slice_vmap = jax.vmap(jax.lax.dynamic_slice, in_axes=(None, 0, None))
 
 
+@jax.jit
+def get_batch(random_key, data):
+    """Prepares a random batch of training data.
 
-def generate_and_print_sample(model, variables, start_context, tokenizer):
-    batch = text_to_token_ids(start_context, tokenizer)
-    token_ids = generate(
-        model,
-        variables,
-        None,
-        batch,
-        max_new_tokens=50,
-        context_size=GPTConfig.ctx_len,
+    Args:
+        random_key: A random seed for sampling a batch.
+        data: The complete training dataset.
+
+    Returns:
+        x: Input sequences.
+        y: Target sequences (shifted inputs).
+    """
+    ix = jax.random.randint(
+        random_key, shape=(BATCH_SIZE, 1), minval=0, maxval=len(data) - BLOCK_SIZE
     )
-    print(token_ids_to_text(token_ids, tokenizer).replace("\n", " "))
+    x = dynamic_slice_vmap(data, ix, (BLOCK_SIZE,))
+    y = dynamic_slice_vmap(data, ix + 1, (BLOCK_SIZE,))
+    return x, y
 
 
-def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses):
-    fig, ax1 = plt.subplots(figsize=(6, 4))
-
-    ax1.plot(epochs_seen, train_losses, label="Training loss")
-    ax1.plot(epochs_seen, val_losses, linestyle="-.", label="Validation loss")
-    ax1.set_xlabel("Epochs")
-    ax1.set_ylabel("Loss")
-    ax1.legend(loc="upper right")
-
-    ax2 = ax1.twiny()
-    ax2.plot(tokens_seen, train_losses, alpha=0)
-    ax2.set_xlabel("Tokens seen")
-    plt.savefig("loss_curve.png")
-    plt.show()
+model = NanoLM(
+    vocab_size=30000,
+    num_layers=NUM_LAYERS,
+    num_heads=NUM_HEADS,
+    head_size=HEAD_SIZE,
+    dropout_rate=DROPOUT_RATE,
+    embed_size=EMBED_SIZE,
+    block_size=BLOCK_SIZE,
+)
 
 
-@click.command()
-@click.option("--data_path", type=str, default="input.txt")
-@click.option("--tokenizer_path", type=str, default="data/tokenizer.json")
-@click.option("--batch_size", type=int, default=128)
-@click.option("--epochs", type=int, default=1)
-@click.option("--learning_rate", type=float, default=1e-3)
-@click.option("--weight_decay", type=float, default=0.0)
-def main(
-    data_path: str,
-    tokenizer_path: str,
-    batch_size: int,
-    epochs: int,
-    learning_rate: float,
-    weight_decay: float,
-):
-    #model = GPTModel(cfg=GPTConfig())
-    from model import NanoLM
-    model = NanoLM(vocab_size=30000)
-    # TODO: jit the loss function
-    @jax.jit
-    def loss_fn(variables, input_batch, target_batch, key=None):
-        logits = model.apply(
-            variables,
-            input_batch,
-            training=True,
-            rngs={"dropout": key},
-        )
-        return optax.losses.softmax_cross_entropy_with_integer_labels(
-            logits=logits, labels=target_batch
-        ).mean()
+def loss_fun(params, x, y, dropout_key):
+    logits = model.apply(params, x, training=True, rngs={"dropout": dropout_key})
+    return optax.softmax_cross_entropy_with_integer_labels(
+        logits=logits, labels=y
+    ).mean()
 
-    def calc_loss_train(variables, input_batch, target_batch, training=True, key=None):
-        loss = loss_fn(variables, input_batch, target_batch, key=key)
-        return loss
 
-    def step(input_batch, target_batch, variables, optimizer, optimizer_state, key):
+@jax.jit
+def eval_step(params, x, y):
+    logits = model.apply(params, x, training=False)
+    return optax.softmax_cross_entropy_with_integer_labels(
+        logits=logits, labels=y
+    ).mean()
+
+
+key = jax.random.PRNGKey(SEED)
+key, subkey = jax.random.split(key)
+
+var_params = model.init(
+    key,
+    jnp.ones((BATCH_SIZE, BLOCK_SIZE), dtype=jnp.int32),
+    training=False,
+)
+
+
+n_params = sum(p.size for p in jax.tree_util.tree_leaves(var_params))
+
+print(f"Total number of parameters: {n_params:_}")
+
+
+# To run with SGD instead of adam, replace `adam` with `sgd`
+opt = optax.adamw(learning_rate=LEARNING_RATE)
+
+opt_state = opt.init(var_params)
+
+
+all_train_losses = []
+all_eval_losses = []
+
+
+# we define one iteration of the optimizer and JIT this function
+@jax.jit
+def step(key, params, opt_state):
+    key, subkey = jax.random.split(key)
+    batch = get_batch(key, train_data)
+    loss, grad = jax.value_and_grad(loss_fun)(params, *batch, subkey)
+    updates, opt_state = opt.update(grad, opt_state, params)
+    params = optax.apply_updates(params, updates)
+    return params, key, opt_state, loss
+
+
+for i in range(N_ITERATIONS):
+    var_params, key, opt_state, loss = step(key, var_params, opt_state)
+    all_train_losses.append(loss)
+
+    # once every N_FREQ_EVAL we compute loss on the validation set
+    if i % N_FREQ_EVAL == 0:
         key, subkey = jax.random.split(key)
-        grads = jax.grad(calc_loss_train)(
-            variables, input_batch, target_batch, training=True, key=subkey
-        )
-        updates, optimizer_state = optimizer.update(
-            grads, optimizer_state, variables
-        )
-        variables = optax.apply_updates(variables, updates)
-        return variables, optimizer_state, key
-
-    def train_model_simple(
-        model,
-        X_train,
-        Y_train,
-        X_val,
-        Y_val,
-        num_epochs,
-        eval_freq,
-        eval_iter,
-        start_context,
-        tokenizer,
-        optimizer,
-        optimizer_state,
-        variables,
-        batch_size,
-    ):
-        train_losses, val_losses, track_tokens_seen = [], [], []
-        tokens_seen, global_step = 0, -1
-        key = jax.random.PRNGKey(0)
-        for epoch in range(num_epochs):
-            key, subkey = jax.random.split(key)
-            perm = jax.random.permutation(subkey, len(X_train))
-            for i in range(0, len(X_train), batch_size):
-                input_batch = X_train[perm[i : i + batch_size]]
-                target_batch = Y_train[perm[i : i + batch_size]]
-                variables, optimizer_state, subkey = step(
-                    input_batch,
-                    target_batch,
-                    variables,
-                    optimizer,
-                    optimizer_state,
-                    key,
-                )
-                tokens_seen += input_batch.size
-                global_step += 1
-                if global_step % eval_freq == 0:
-                    train_loss = calc_loss_train(
-                        variables,
-                        input_batch,
-                        target_batch,
-                        training=False,
-                        key=subkey,
-                    )
-                    val_loss = calc_loss_train(
-                        variables,
-                        input_batch,
-                        target_batch,
-                        training=False,
-                        key=subkey,
-                    )
-                    train_losses.append(train_loss)
-                    val_losses.append(val_loss)
-                    track_tokens_seen.append(tokens_seen)
-                    print(
-                        f"Ep {epoch+1} (Step {global_step:06d}): Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}"
-                    )
-                    # generate_and_print_sample(model, variables, start_context, tokenizer)
-        return train_losses, val_losses, track_tokens_seen, variables, optimizer_state
+        eval_loss = eval_step(var_params, *get_batch(subkey, eval_data))
+        all_eval_losses.append(eval_loss)
+        print(f"Step: {i}\t train loss: {loss}\t eval loss: {eval_loss}")
 
 
-    key = jax.random.PRNGKey(0)
-
-    if tokenizer_path == "gpt2":
-        tokenizer = AbstractTokenizer(tiktoken.get_encoding("gpt2"), "gpt2")
-    else:
-        print(f"Loading tokenizer from {tokenizer_path}")
-        tokenizer = AbstractTokenizer(
-            Tokenizer.from_file(tokenizer_path), tokenizer_path
-        )
-        print("Tokenizer loaded")
-    with open(data_path, "r", encoding="utf-8") as f:
-        text_data = f.read()
-    train_ratio = 0.90
-    total_tokens = len(tokenizer.encode(text_data))
-    split_idx = int(train_ratio * len(text_data))
-    train_data = text_data[:split_idx]
-    val_data = text_data[split_idx:]
-    X_train, Y_train = create_jax_dataset(
-        train_data,
-        tokenizer,
-        batch_size,
-        GPTConfig.ctx_len,
-        GPTConfig.ctx_len,
-        False,
-        True,
-    )
-    print("Tokenized train data shape:", X_train.shape, Y_train.shape)
-
-    X_val, Y_val = create_jax_dataset(
-        val_data,
-        tokenizer,
-        batch_size,
-        GPTConfig.ctx_len,
-        GPTConfig.ctx_len,
-        False,
-        True,
-    )
-    print("Tokenized val data shape:", X_val.shape, Y_val.shape)
-
-    if total_tokens * train_ratio < GPTConfig.ctx_len:
-        raise ValueError("The training dataset is too small for the context length")
-    if total_tokens * (1 - train_ratio) < GPTConfig.ctx_len:
-        raise ValueError("The validation dataset is too small for the context length")
-
-    optimizer = optax.adamw(learning_rate, weight_decay)
-    variables = model.init(
-        key,
-        jnp.ones((batch_size, GPTConfig.ctx_len), dtype=jnp.int32),
-        training=False,
-    )
-    # print("Total tokens:", len(tokenizer.encode(text_data)))
-    print("Total parameters:", sum(x.size for x in jax.tree.leaves(variables)))
-
-    opt_state = optimizer.init(variables)
-    train_losses, val_losses, track_tokens_seen, variables, opt_state = (
-        train_model_simple(
-            model,
-            X_train,
-            Y_train,
-            X_val,
-            Y_val,
-            num_epochs=epochs,
-            eval_freq=5,
-            eval_iter=5,
-            start_context="深いおどろきにうたれて、",
-            tokenizer=tokenizer,
-            optimizer=optimizer,
-            optimizer_state=opt_state,
-            variables=variables,
-            batch_size=batch_size,
-        )
-    )
-
-    epochs_tensor = jnp.linspace(0, epochs, num=len(train_losses))
-    plot_losses(
-        epochs_tensor,
-        jnp.array(track_tokens_seen),
-        jnp.array(train_losses),
-        jnp.array(val_losses),
-    )
-
-    # store variables
-    with open("model/variables.pkl", "wb") as f:
-        pickle.dump(variables, f)
-    print("Variables stored")
+plt.title("Convergence of adamw (train loss)")
+plt.plot(all_train_losses, label="train", lw=3)
+plt.plot(
+    jnp.arange(0, len(all_eval_losses) * N_FREQ_EVAL, N_FREQ_EVAL),
+    all_eval_losses,
+    label="test",
+    lw=3,
+)
+# display token seen num on the upper x-axis
+ax2 = plt.gca().twiny()
+tokens_seen = jnp.arange(0, len(all_train_losses)) * BATCH_SIZE * BLOCK_SIZE
+ax2.plot(tokens_seen, all_train_losses, alpha=0)
+ax2.set_xlabel("tokens seen")
+plt.xlabel("steps")
+plt.ylabel("loss")
+plt.grid()
+plt.legend(frameon=False)
+plt.savefig("train_loss.png")
+plt.show()
 
 
-if __name__ == "__main__":
-    main()
+# Let's now generate some text
+key, subkey = jax.random.split(key)
+text = model.generate(key, var_params, 1000)[:, 0, 0].tolist()
+print(tokenizer.decode(text))
+
+# Store the model
+import os
+
+os.makedirs("model", exist_ok=True)
+with open("model/params.pkl", "wb") as f:
+    pickle.dump(var_params, f)
+print("Params stored")
+
+# store the moel config
+config = {
+    "vocab_size": 30000,
+    "num_layers": NUM_LAYERS,
+    "num_heads": NUM_HEADS,
+    "head_size": HEAD_SIZE,
+    "dropout_rate": DROPOUT_RATE,
+    "embed_size": EMBED_SIZE,
+    "block_size": BLOCK_SIZE,
+}
+with open("model/config.json", "w") as f:
+    json.dump(config, f)
