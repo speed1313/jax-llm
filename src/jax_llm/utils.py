@@ -62,3 +62,28 @@ def generate(
 
         idx = jnp.concatenate([idx, idx_next], axis=-1)
     return idx
+
+
+import functools
+@functools.partial(jax.jit, static_argnames=("model", "length"))
+def fast_generate(model, rng, params, length, prompt):
+    def _scan_generate(carry, _):
+        random_key, context = carry
+        logits = model.apply(params, context, training=False)
+        rng, rng_subkey = jax.random.split(random_key)
+        new_token = jax.random.categorical(
+            rng_subkey, logits[:, -1, :], axis=-1, shape=(1, 1)
+        )
+        context = jnp.concatenate([context[:, 1:], new_token], axis=1)
+        return (rng, context), new_token
+    context = prompt
+    context = jnp.array(context).reshape(1, -1)
+    _, new_tokens = jax.lax.scan(
+        _scan_generate,
+        (rng, context),
+        (),
+        length=length,
+    )
+
+
+    return new_tokens
