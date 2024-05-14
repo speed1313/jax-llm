@@ -10,6 +10,7 @@ import json
 import click
 from tqdm import trange
 
+
 @click.command()
 @click.option("--data_name", type=str, default="aozora")
 @click.option("--seed", type=int, default=42)
@@ -73,7 +74,9 @@ def main(
     tokenizer_path = f"data/{data_name}/tokenizer.json"
     model_path = f"model/{data_name}"
 
-    assert embed_size == head_size * num_heads, "embed_size must be equal to head_size * num_heads"
+    assert (
+        embed_size == head_size * num_heads
+    ), "embed_size must be equal to head_size * num_heads"
     import os
 
     os.makedirs(model_path, exist_ok=True)
@@ -188,25 +191,25 @@ def main(
             all_eval_losses.append(eval_loss)
             print(f"Step: {i}\t train loss: {loss}\t eval loss: {eval_loss}")
 
-    plt.title("Convergence of adamw (train loss)")
-    plt.plot(all_train_losses, label="train", lw=3)
-    plt.plot(
+    plt.title("Loss dynamics")
+    fig, ax1 = plt.subplots()
+    ax1.plot(all_train_losses, label="train", lw=3)
+    ax1.plot(
         jnp.arange(0, len(all_eval_losses) * n_freq_eval, n_freq_eval),
         all_eval_losses,
         label="test",
         lw=3,
     )
-    # display token seen num on the upper x-axis
-    ax2 = plt.gca().twiny()
+    ax1.set_xlabel("steps")
+    ax1.set_ylabel("loss")
+
+    ax2 = ax1.twiny()
     tokens_seen = jnp.arange(0, len(all_train_losses)) * batch_size * block_size
     ax2.plot(tokens_seen, all_train_losses, alpha=0)
     ax2.set_xlabel("tokens seen")
-    ax1 = plt.gca()
-    ax1.set_xlabel("steps")
-    plt.ylabel("loss")
-    plt.grid()
-    plt.legend()
-    plt.tight_layout()
+    ax1.legend()
+    ax1.grid()
+    fig.tight_layout()
     plt.savefig(f"train_loss_{data_name}.png")
     plt.show()
 
@@ -234,6 +237,11 @@ def main(
         "embed_size": embed_size,
         "block_size": block_size,
         "n_params": n_params,
+        "batch_size": batch_size,
+        "n_iterations": n_iterations,
+        "n_freq_eval": n_freq_eval,
+        "total_tokens": total_tokens,
+        "learning_rate": learning_rate,
     }
     with open(f"{model_path}/config.json", "w") as f:
         json.dump(config, f)

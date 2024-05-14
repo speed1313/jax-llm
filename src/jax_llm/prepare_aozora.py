@@ -7,6 +7,7 @@ import click
 def main(book_num: int):
     data_name = f"aozora_{book_num}"
     import os
+
     os.makedirs(f"data/{data_name}", exist_ok=True)
     save_path = f"data/{data_name}/input.txt"
     ds = load_dataset(

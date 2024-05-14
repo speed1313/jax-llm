@@ -3,7 +3,12 @@ import jax
 from model import NanoLM
 from tokenizers import Tokenizer
 import click
-from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, top_k_generate
+from utils import (
+    AbstractTokenizer,
+    text_to_token_ids,
+    token_ids_to_text,
+    top_k_generate,
+)
 import pickle
 import json
 
@@ -51,7 +56,15 @@ def main(
     batch = text_to_token_ids(prompt, tokenizer)
 
     key, subkey = jax.random.split(key)
-    token_ids = top_k_generate(model, subkey, params, max_new_tokens, batch, top_k=top_k, temperature=temperature)
+    token_ids = top_k_generate(
+        model,
+        subkey,
+        params,
+        max_new_tokens,
+        batch,
+        top_k=top_k,
+        temperature=temperature,
+    )
 
     print("Output:", token_ids_to_text(token_ids, tokenizer))
 
