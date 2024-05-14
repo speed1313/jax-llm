@@ -3,15 +3,31 @@ JAX implementation of Large Language Models.
 You can train GPT-2-like model with 青空文庫 ([aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset).
 Model implementation is based on [NanoLM](https://optax.readthedocs.io/en/latest/_collections/examples/nanolm.html).
 
+
+## File structure
+```
+src
+data
+├── aozora
+│   ├── input.txt
+│   ├── config.json
+│   ├── tokenizer.json
+model
+├── aozora
+│   ├── params.pkl
+│   ├── config.json
+│   ├── opt_state.pkl
+```
+
+
 ## How to use
 
 ###  Prepare the [aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean) dataset.
 
 ```bash
-cd src/jax_llm
-rye run python3 prepare_aozora.py --book_num 3000
+python3 src/jax_llm/prepare_aozora.py --book_num 3000
 ```
-This command generates a single text file. Currently, only 1000/3000 books (9359840/20956840 Tokens) are used.
+This command generates a single text file. Currently, 3000 books (20M Tokens) are used.
 
 > [!NOTE]
 > You can use any dataset for training by simply preparing a suitable txt file, without executing this command. For example, [Wikitext-JA's Featured Contents(1037109 Tokens)](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja/Featured_Contents.txt) is a good choice.
@@ -19,12 +35,12 @@ This command generates a single text file. Currently, only 1000/3000 books (9359
 ###  Train the BPE (Byte Pair Encoding) tokenizer.
 Specify the path to the text file created in the previous step. This process takes approximately 20 seconds.
 ```bash
-rye run python3 train_tokenizer.py --data_path "input.txt"
+python3 src/jax_llm/train_tokenizer.py --data_name "aozora"
 ```
 
 ###  Train [NanoLM model](https://optax.readthedocs.io/en/latest/_collections/examples/nanolm.html) with [aozora bunko-clean](https://huggingface.co/datasets/globis-university/Aozorabunko-clean) dataset.
 ```bash
-rye run python3 train.py
+python3 src/jax_llm/train.py --data_name "aozora"
 ```
 Hyperparameters of the model can be adjusted in `src/jax_llm/train.py`.
 

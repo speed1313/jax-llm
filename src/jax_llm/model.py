@@ -100,7 +100,7 @@ class GPTModel(nn.Module):
 class NanoLM(nn.Module):
     """NanoLM model."""
 
-    vocab_size: int = 30000
+    vocab_size: int = 50304
     num_layers: int = 4
     num_heads: int = 4
     head_size: int = 32

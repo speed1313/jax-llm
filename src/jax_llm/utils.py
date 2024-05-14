@@ -65,6 +65,8 @@ def generate(
 
 
 import functools
+
+
 @functools.partial(jax.jit, static_argnames=("model", "length"))
 def fast_generate(model, rng, params, length, prompt):
     def _scan_generate(carry, _):
@@ -76,6 +78,7 @@ def fast_generate(model, rng, params, length, prompt):
         )
         context = jnp.concatenate([context[:, 1:], new_token], axis=1)
         return (rng, context), new_token
+
     context = prompt
     context = jnp.array(context).reshape(1, -1)
     _, new_tokens = jax.lax.scan(
@@ -84,6 +87,5 @@ def fast_generate(model, rng, params, length, prompt):
         (),
         length=length,
     )
-
 
     return new_tokens

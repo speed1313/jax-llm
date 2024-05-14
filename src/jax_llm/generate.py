@@ -9,25 +9,25 @@ import json
 
 
 @click.command()
-@click.option("--tokenizer_path", type=str, default="data/tokenizer.json")
-@click.option("--params_path", type=str, default="model/params.pkl")
+@click.option("--data_name", type=str, default="aozora")
 @click.option("--prompt", type=str, default="私は")
 @click.option("--max_new_tokens", type=int, default=30)
 @click.option("--temperature", type=float, default=None)
 @click.option("--top_k", type=int, default=25)
 def main(
-    tokenizer_path: str,
-    params_path: str,
+    data_name: str,
     prompt: str,
     max_new_tokens: int,
     temperature: float,
     top_k: int,
 ):
+    tokenizer_path = f"data/{data_name}/tokenizer.json"
+    model_path = f"model/{data_name}"
     # load config json
-    with open("model/config.json", "r") as f:
+    with open(f"{model_path}/config.json", "r") as f:
         config = json.load(f)
     # load params
-    with open(params_path, "rb") as f:
+    with open(f"{model_path}/params.pkl", "rb") as f:
         params = pickle.load(f)
 
     model = NanoLM(
@@ -57,6 +57,7 @@ def main(
     if temperature == None:
         print("Using fast generation")
         from utils import fast_generate
+
         token_ids = fast_generate(model, subkey, params, max_new_tokens, batch)
     else:
         token_ids = generate(
