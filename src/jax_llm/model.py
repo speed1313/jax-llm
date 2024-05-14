@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import flax.linen as nn
 from dataclasses import dataclass
-from utils import AbstractTokenizer, generate
+from utils import AbstractTokenizer, fast_generate
 import functools
 
 

@@ -144,7 +144,7 @@ def main(
             logits=logits, labels=y
         ).mean()
 
-    key = jax.random.PRNGKey(SEED)
+    key = jax.random.PRNGKey(seed)
     key, subkey = jax.random.split(key)
 
     var_params = model.init(
@@ -202,7 +202,8 @@ def main(
     plt.xlabel("steps")
     plt.ylabel("loss")
     plt.grid()
-    plt.legend(frameon=False)
+    plt.legend()
+    plt.tight_layout()
     plt.savefig("train_loss.png")
     plt.show()
 

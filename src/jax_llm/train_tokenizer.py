@@ -28,7 +28,13 @@ def main(data_name: str, vocab_size: int):
     # print token num
     with open(data_file_path, "r", encoding="utf-8") as f:
         text_data = f.read()
-    print("Total tokens: ", len(tokenizer.encode(text_data)))
+    tokenized_text = tokenizer.encode(text_data)
+    total_tokens = len(tokenized_text.ids)
+    print("Total tokens: ", total_tokens)
+    with open(f"{save_dir}/config.json", "w") as f:
+        f.write(
+            f'{{"vocab_size": {vocab_size}, "total_tokens": {total_tokens}, "data_file_path": "{data_file_path}"}}'
+        )
 
 
 if __name__ == "__main__":

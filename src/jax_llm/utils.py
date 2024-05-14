@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import functools
 
 
 class AbstractTokenizer:
@@ -28,46 +29,35 @@ def token_ids_to_text(token_ids, tokenizer: AbstractTokenizer):
     return tokenizer.decode(flat.tolist())
 
 
-def generate(
-    model,
-    params,
-    key,
-    idx,
-    max_new_tokens: int,
-    context_size: int,
-    temperature: float = 0.0,
-    top_k=None,
-):
-    """
-    Generate new tokens from a given context
-        temperature: 0.0 means greedy sampling, > 0.0 means sampling with temperature
-        top_k: if not None, only sample from the top k most likely tokens
-    """
-    for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]
-        logits = model.apply(params, idx_cond, training=False)
-        logits = logits[:, -1, :]
-
-        if top_k is not None:
-            top_logits, _ = jax.lax.top_k(logits, top_k)
-            min_val = top_logits[:, -1]
-            logits = jnp.where(logits < min_val, -jnp.inf, logits)
-
-        if temperature > 0.0:
-            logits = logits / temperature
-            idx_next = jax.random.categorical(key, logits, shape=(1,), axis=-1)
-            idx_next = idx_next[:, None]
-        else:
-            idx_next = jnp.argmax(logits, axis=-1, keepdims=True)
-
-        idx = jnp.concatenate([idx, idx_next], axis=-1)
-    return idx
+#@functools.partial(jax.jit, static_argnames=("model", "length", "top_k", "temperature"))
+def top_k_generate(model, rng, params, length, prompt, top_k: int = 30, temperature: float = 1.0):
+    def _scan_generate(carry, _):
+        random_key, context = carry
+        logits = model.apply(params, context, training=False)
+        top_logits, _ = jax.lax.top_k(logits[:, -1, :], top_k)
+        min_val = top_logits[:, -1]
+        logits = jnp.where(logits < min_val, -jnp.inf, logits)
+        logits = logits / temperature
+        rng, rng_subkey = jax.random.split(random_key)
+        new_token = jax.random.categorical(
+            rng_subkey, logits[:, -1, :], axis=-1, shape=(1, 1)
+        )
+        context = jnp.concatenate([context[:, 1:], new_token], axis=1)
+        return (rng, context), new_token
+    context = prompt
+    context = jnp.array(context).reshape(1, -1)
+    _, new_tokens = jax.lax.scan(
+        _scan_generate,
+        (rng, context),
+        (),
+        length=length,
+    )
+    generated = jnp.concatenate([prompt.flatten(), new_tokens.flatten()])
+    return generated
 
 
-import functools
 
-
-@functools.partial(jax.jit, static_argnames=("model", "length"))
+#@functools.partial(jax.jit, static_argnames=("model", "length"))
 def fast_generate(model, rng, params, length, prompt):
     def _scan_generate(carry, _):
         random_key, context = carry
@@ -87,5 +77,6 @@ def fast_generate(model, rng, params, length, prompt):
         (),
         length=length,
     )
+
 
     return new_tokens

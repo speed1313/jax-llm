@@ -3,7 +3,7 @@ import jax
 from model import NanoLM
 from tokenizers import Tokenizer
 import click
-from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, generate
+from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, top_k_generate, fast_generate
 import pickle
 import json
 
@@ -12,7 +12,7 @@ import json
 @click.option("--data_name", type=str, default="aozora")
 @click.option("--prompt", type=str, default="私は")
 @click.option("--max_new_tokens", type=int, default=30)
-@click.option("--temperature", type=float, default=None)
+@click.option("--temperature", type=float, default=1.0)
 @click.option("--top_k", type=int, default=25)
 def main(
     data_name: str,
@@ -53,23 +53,11 @@ def main(
     batch = text_to_token_ids(prompt, tokenizer)
 
     key, subkey = jax.random.split(key)
-    print(temperature)
-    if temperature == None:
-        print("Using fast generation")
-        from utils import fast_generate
-
-        token_ids = fast_generate(model, subkey, params, max_new_tokens, batch)
-    else:
-        token_ids = generate(
-            model=model,
-            params=params,
-            key=subkey,
-            idx=batch,
-            max_new_tokens=max_new_tokens,
-            context_size=config["block_size"],
-            temperature=temperature,
-            top_k=top_k,
-        )
+    #if temperature == None:
+    #    token_ids = fast_generate(model, subkey, params, max_new_tokens, batch)
+    #else:
+    print(batch)
+    token_ids = top_k_generate(model, subkey, params, max_new_tokens, batch, top_k=top_k, temperature=temperature)
 
     print("Output:", token_ids_to_text(token_ids, tokenizer))
 
