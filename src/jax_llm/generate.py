@@ -3,7 +3,7 @@ import jax
 from model import NanoLM
 from tokenizers import Tokenizer
 import click
-from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, top_k_generate, fast_generate
+from utils import AbstractTokenizer, text_to_token_ids, token_ids_to_text, top_k_generate
 import pickle
 import json
 
@@ -39,7 +39,6 @@ def main(
         embed_size=config["embed_size"],
         block_size=config["block_size"],
     )
-    print("Params loaded")
     key = jax.random.PRNGKey(0)
 
     if tokenizer_path == "gpt2":
@@ -48,15 +47,10 @@ def main(
         tokenizer = AbstractTokenizer(
             Tokenizer.from_file(tokenizer_path), tokenizer_path
         )
-    print("Tokenizer loaded")
 
     batch = text_to_token_ids(prompt, tokenizer)
 
     key, subkey = jax.random.split(key)
-    #if temperature == None:
-    #    token_ids = fast_generate(model, subkey, params, max_new_tokens, batch)
-    #else:
-    print(batch)
     token_ids = top_k_generate(model, subkey, params, max_new_tokens, batch, top_k=top_k, temperature=temperature)
 
     print("Output:", token_ids_to_text(token_ids, tokenizer))

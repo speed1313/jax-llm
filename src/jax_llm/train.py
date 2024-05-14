@@ -72,6 +72,8 @@ def main(
     data_filename = f"data/{data_name}/input.txt"
     tokenizer_path = f"data/{data_name}/tokenizer.json"
     model_path = f"model/{data_name}"
+
+    assert embed_size == head_size * num_heads, "embed_size must be equal to head_size * num_heads"
     import os
 
     os.makedirs(model_path, exist_ok=True)
