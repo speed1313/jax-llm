@@ -11,7 +11,7 @@ import json
 @click.command()
 @click.option("--data_name", type=str, default="aozora")
 @click.option("--prompt", type=str, default="私は")
-@click.option("--max_new_tokens", type=int, default=30)
+@click.option("--max_new_tokens", type=int, default=60)
 @click.option("--temperature", type=float, default=1.0)
 @click.option("--top_k", type=int, default=25)
 def main(

@@ -8,7 +8,7 @@ from model import NanoLM
 import pickle
 import json
 import click
-
+from tqdm import trange
 
 @click.command()
 @click.option("--data_name", type=str, default="aozora")
@@ -31,13 +31,13 @@ import click
 @click.option(
     "--block_size",
     type=int,
-    default=64,
+    default=128,
     help="Context window for the transformer model",
 )
 @click.option(
     "--num_layers",
     type=int,
-    default=6,
+    default=8,
     help="Number of layer for the transformer model",
 )
 @click.option(
@@ -175,7 +175,7 @@ def main(
         params = optax.apply_updates(params, updates)
         return params, key, opt_state, loss
 
-    for i in range(n_iterations):
+    for i in trange(n_iterations):
         var_params, key, opt_state, loss = step(key, var_params, opt_state)
         all_train_losses.append(loss)
 
@@ -199,12 +199,13 @@ def main(
     tokens_seen = jnp.arange(0, len(all_train_losses)) * batch_size * block_size
     ax2.plot(tokens_seen, all_train_losses, alpha=0)
     ax2.set_xlabel("tokens seen")
-    plt.xlabel("steps")
+    ax1 = plt.gca()
+    ax1.set_xlabel("steps")
     plt.ylabel("loss")
     plt.grid()
     plt.legend()
     plt.tight_layout()
-    plt.savefig("train_loss.png")
+    plt.savefig(f"train_loss_{data_name}.png")
     plt.show()
 
     # Let's now generate some text
@@ -230,6 +231,7 @@ def main(
         "dropout_rate": dropout_rate,
         "embed_size": embed_size,
         "block_size": block_size,
+        "n_params": n_params,
     }
     with open(f"{model_path}/config.json", "w") as f:
         json.dump(config, f)

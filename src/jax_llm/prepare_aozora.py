@@ -5,10 +5,10 @@ import click
 @click.command()
 @click.option("--book_num", type=int, default=10)
 def main(book_num: int):
+    data_name = f"aozora_{book_num}"
     import os
-
-    os.makedirs("data/aozora", exist_ok=True)
-    save_path = "data/aozora/input.txt"
+    os.makedirs(f"data/{data_name}", exist_ok=True)
+    save_path = f"data/{data_name}/input.txt"
     ds = load_dataset(
         "globis-university/aozorabunko-clean", cache_dir="data/aozora/cache"
     )
