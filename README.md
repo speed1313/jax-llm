@@ -25,7 +25,7 @@ python3 src/jax_llm/train_tokenizer.py --data_name "aozora_100"
 
 This command takes about 2 minutes on CPU.
 ```bash
-python3 src/jax_llm/train.py --data_name "aozora_100" --batch_size 8 --n_iterations 500 --n_freq_eval 100 --dropout_rate 0.0 --learning_rate 0.0005 --num_layers 4 --embed_size 128  --head_size 32 --num_heads 4
+python3 src/jax_llm/train.py --data_name "aozora_100" --batch_size 8 --n_iterations 500 --n_freq_eval 100 --dropout_rate 0.0 --learning_rate 0.0005 --num_layers 4 --embed_size 256  --head_size 64 --num_heads 4
 ```
 
 ### Generate text with the trained model.

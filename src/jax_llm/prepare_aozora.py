@@ -14,7 +14,7 @@ def main(book_num: int):
     )
     ds = ds.filter(lambda row: row["meta"]["文字遣い種別"] == "新字新仮名")
     # concat each bokk with <|endoftext|> token
-    print(f"{booknum} books out of {len(ds['train'])} are used")
+    print(f"{book_num} books out of {len(ds['train'])} are used")
     with open(save_path, "w") as f:
         for i, book in enumerate(ds["train"]):
             if i > book_num:
