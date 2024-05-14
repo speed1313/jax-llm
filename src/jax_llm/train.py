@@ -70,7 +70,7 @@ def main(
     num_heads: int,
     head_size: int,
 ):
-    data_filename = f"data/{data_name}/input.txt"
+    data_filename = f"data/{data_name}/tokenized_text.bin"
     tokenizer_path = f"data/{data_name}/tokenizer.json"
     model_path = f"model/{data_name}"
 
@@ -93,17 +93,19 @@ def main(
     tokenizer_json = json.load(open(tokenizer_path, "r"))
     vocab_size = len(tokenizer_json["model"]["vocab"])
 
-    with open(data_filename, "r", encoding="utf-8") as f:
-        text_data = f.read()
+    if not os.path.exists(data_filename):
+        with open(f"data/{data_name}/input.txt", "r", encoding="utf-8") as f:
+            text_data = f.read()
+        tokenized_text = jnp.array(tokenizer.encode(text_data).ids)
+    else:
+        with open(data_filename, "rb") as f:
+            tokenized_text = f.read()
     train_ratio = 0.90
-    total_tokens = len(tokenizer.encode(text_data))
-    split_idx = int(train_ratio * len(text_data))
-    train_data = text_data[:split_idx]
-    train_data = tokenizer.encode(train_data)
-    train_data = jnp.array(train_data)
-    eval_data = text_data[split_idx:]
-    eval_data = tokenizer.encode(eval_data)
-    eval_data = jnp.array(eval_data)
+    tokenized_text = jnp.frombuffer(tokenized_text, dtype=jnp.int32)
+    total_tokens = len(tokenized_text)
+    split_idx = int(train_ratio * total_tokens)
+    train_data = tokenized_text[:split_idx]
+    eval_data = tokenized_text[split_idx:]
 
     dynamic_slice_vmap = jax.vmap(jax.lax.dynamic_slice, in_axes=(None, 0, None))
 

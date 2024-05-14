@@ -3,6 +3,7 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from tokenizers.pre_tokenizers import Whitespace
 import click
+import jax.numpy as jnp
 
 
 @click.command()
@@ -21,20 +22,24 @@ def main(data_name: str, vocab_size: int):
     files = [data_file_path]
     tokenizer.train(
         files, trainer
-    )  # default vocab_size=30000 (ref: https://github.com/huggingface/tokenizers/blob/25aee8b88c8de3c5a52e2f9cb6281d6df00ad516/bindings/python/py_src/tokenizers/implementations/byte_level_bpe.py#L82)
+    )
 
     tokenizer.save(f"{save_dir}/tokenizer.json")
 
     # print token num
     with open(data_file_path, "r", encoding="utf-8") as f:
         text_data = f.read()
-    tokenized_text = tokenizer.encode(text_data)
-    total_tokens = len(tokenized_text.ids)
+    tokenized_text = jnp.array(tokenizer.encode(text_data).ids)
+    total_tokens = len(tokenized_text)
     print("Total tokens: ", total_tokens)
     with open(f"{save_dir}/config.json", "w") as f:
         f.write(
             f'{{"vocab_size": {vocab_size}, "total_tokens": {total_tokens}, "data_file_path": "{data_file_path}"}}'
         )
+
+    # store tokenized text as bin
+    with open(f"{save_dir}/tokenized_text.bin", "wb") as f:
+        f.write(tokenized_text.tobytes())
 
 
 if __name__ == "__main__":
