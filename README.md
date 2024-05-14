@@ -68,6 +68,13 @@ Prompt: "国境の 長いトンネルを抜けると雪国であった。"
 
 
 
+When the model size is fixed, if the number of tokens is small, the train loss and eval loss diverge. However, when the number of tokens is large, both the train loss and eval loss decrease together.
+This result illustrates a part of the findings pointed out in the [Kaplan et al., Scaling Laws for Neural Language Models, 2020](https://arxiv.org/abs/2001.08361).
+It is interesting to see such results even in a smaller setting.
+
+
+
+
 ## Training with [Wikitext-JA](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja) dataset.
 ###  Prepare the Wikitext-JA dataset.
 - Download the dataset from [here](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja).
@@ -86,7 +93,7 @@ Special thanks to the following repositories, papers, and datasets.
 - https://github.com/openai/gpt-2
 - [Radford et al., Language Models are Unsupervised Multitask Learners, 2019](https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf)
 - https://github.com/lxaw/shijin
-
+- [Kaplan et al., Scaling Laws for Neural Language Models, 2020](https://arxiv.org/abs/2001.08361)
 ### Dataset
 - akeyhero, https://qiita.com/akeyhero/items/b53eae1c0bc4d54e321f
 - [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
