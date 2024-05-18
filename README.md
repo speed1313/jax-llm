@@ -82,12 +82,11 @@ Special thanks to the following repositories, papers, and datasets.
 - https://github.com/lxaw/shijin
 - [Kaplan et al., Scaling Laws for Neural Language Models, 2020](https://arxiv.org/abs/2001.08361)
 ### Dataset
-- akeyhero, https://qiita.com/akeyhero/items/b53eae1c0bc4d54e321f
 - [akeyhero, aozora bunko-clean](https://huggingface.co/datasets/globis-university/aozorabunko-clean)
   青空文庫, https://www.aozora.gr.jp/
-- [Wikitext-JA](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja)
+- [Mori et al., Wikitext-JA](http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja)
 
-
+- [Tsukagoshi et al., WikiSplit++](https://huggingface.co/datasets/cl-nagoya/wikisplit-pp)
 
 
 ## Appendix
@@ -125,18 +124,26 @@ python3 src/jax_llm/prepare_wiki_ja_featured.py
 ## Training with [WikiSplit++](https://huggingface.co/datasets/cl-nagoya/wikisplit-pp) dataset.
 ###  Prepare the WikiSplit++ dataset.
 
-We construct input.txt by concatenating the simple_reversed fields from the train dataset with `<|endoftext|>` as a separator.
+We construct input.txt by concatenating the `simple_reversed` (or any other) fields from the train dataset with `<|endoftext|>` as a separator.
 ```bash
-python3 src/jax_llm/prepare_wikisplit-pp.py
+python3 src/jax_llm/prepare_wikisplit-pp.py --field "simple_reversed"
 ```
 
 - Substitute "aozora_10246" with "wikisplit-pp" in the commands in the `How to use` section.
 
 ### Results
-- wikisplit-pp (20M Tokens)
+- wikisplit-pp-simple_reversed (20M Tokens)
 
 *Loss Dynamics*
-![loss_dynamics_wikisplit-pp](./figure/wikisplit-pp/loss_dynamics.png)
+![loss_dynamics_wikisplit-pp-simple_reversed](./figure/wikisplit-pp-simple_reversed/loss_dynamics.png)
 
 *Prompt: "The train came out of the long tunnel into the snow country."*
 > Output: The train came out of the long tunnel into the snow country . In the 1970s a pedestrian was also used . However , it was widely viewed as an alternative to the American film industry . The original " Superman III " was based on the first game in series . However , he is a good friend for the character , and is reluctant to let anyone out of school . A year later the station began operation in the late 1980s , but in late 2002 to be converted to DVD . As a result , " The Voice " had some of the first international albums . He is a long - time contributor to the " New York Times ". The Daily Telegraph is an imprint of the American National Media Enterprise Association . She studied literature and art history . She was an undergraduate in the classical languages of Germany and the Austrian - Polish language . Born in the southern German region of the Czech state of the Kingdom of Hungary . The most extensive was the United States ' s entry in the 1960s , where the U . S . Supreme Court is being investigated . The
+
+- wikisplit-pp-complex (19M Tokens)
+
+*Loss Dynamics*
+![loss_dynamics_wikisplit-pp-complex](./figure/wikisplit-pp-complex/loss_dynamics.png)
+
+*Prompt: "The train came out of the long tunnel into the snow country."*
+> Output: The train came out of the long tunnel into the snow country . The main reason is that this will only be that it is possible to make a mistake , or if the victim is in an attempt to keep them up in the air . During his youth , he was given two caps for the national level . He played 283 games and eight games in the 1998 -- 04 season , including the first - ever - ever - ever competitive season appearance in the history of the United Kingdom and is a member of the Conservative Party . In the mid - 80s and early 90s , the first film , called " I Think What " and " Love " . It is the longest river that is about to the north of the city , and from the west , the village centre lies in the middle of the borough and the parish itself is the town of Bury St Edmunds . It is one of the leading schools in the United States , and the former president of the Rhode Island Historical Society . The name , still colloquially referred to as the " Penny ", was a
