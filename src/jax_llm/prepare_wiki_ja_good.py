@@ -3,7 +3,7 @@ import requests
 
 # URLと保存ディレクトリの定義
 url = "http://www.lsta.media.kyoto-u.ac.jp/resource/data/wikitext-ja/Good_Contents.txt"
-save_dir = "data/wiki-ja-good-2"
+save_dir = "data/wiki-ja-good"
 save_path = os.path.join(save_dir, "input.txt")
 
 # 保存ディレクトリが存在しない場合は作成
