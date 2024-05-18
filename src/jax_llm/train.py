@@ -73,6 +73,7 @@ def main(
     data_filename = f"data/{data_name}/tokenized_text.bin"
     tokenizer_path = f"data/{data_name}/tokenizer.json"
     model_path = f"model/{data_name}"
+    figure_dir = f"figure/{data_name}"
 
     assert (
         embed_size == head_size * num_heads
@@ -80,6 +81,7 @@ def main(
     import os
 
     os.makedirs(model_path, exist_ok=True)
+    os.makedirs(figure_dir, exist_ok=True)
 
     # platform check
     print("JAX running on", jax.devices()[0].platform.upper())
@@ -212,7 +214,7 @@ def main(
     ax1.legend()
     ax1.grid()
     fig.tight_layout()
-    plt.savefig(f"train_loss_{data_name}.png")
+    plt.savefig(f"{figure_dir}/loss_dynamics.png")
     plt.show()
 
     # Let's now generate some text
