@@ -120,3 +120,23 @@ python3 src/jax_llm/prepare_wiki_ja_featured.py
 
 *Prompt: "国境の長いトンネルを抜けると雪国であった。"*
 > Output: 国境の 長い トンネル を抜 けると 雪 国であった 。 また 鉄道 輸送 も 逼迫 しており 、 また 、 この 「 スポ根 」 という点 においては 、 大 映 像の 対象 も 奈良時代の 作品として 見られる が 、 この 古代の 仏 像は 百済 の王 王 であるという ことであり 、 その 史実 である 「 新羅 は 唐 の国 へ 一切の 貢納 と引き換えに 、 戦利 品 や 諸 税 収入 増加 が重なり 、 特に 農村 商工業 、 農村 、 そして 馬車 といった インフラストラク アン ティー によって 、 カリフォルニア で最も 多い 。 標高 は約 ３２０ ｍｍ であり 、 平均 は ３００ ｍｍ である 。 === 降雪 （ 流 線 ）=== 夏の 気温 で 発生する 雨 は 平均 年 よりも 少ない が 、 年 で見ると １ 件 、 うち １ 件 については １０ 件 、 １ 件は 、 被災 前の １割 程度の 死亡 率 であった 。 しかし 、 この 原因として 、 この 問題は 、 ナンマトル の ナーン 庭 で 行われていた のは 、 その後 になって からは 、 忠敬 が 設計した 日食 を 「 シー ブ シー 」 と呼んだ ） が 、 これらの 作品を 「 アトリエ 亭 」 と称 せる 。 １９２６年に この アトリエ に 「 青騎士 」 を設置し 、 青騎士 は ミュンヘン で 「 この 世 物の オルガニスト に 自分の 考え を 、 先輩 が 私 物や 子供たちを
+
+
+## Training with [WikiSplit++](https://huggingface.co/datasets/cl-nagoya/wikisplit-pp) dataset.
+###  Prepare the WikiSplit++ dataset.
+
+We construct input.txt by concatenating the simple_reversed fields from the train dataset with `<|endoftext|>` as a separator.
+```bash
+python3 src/jax_llm/prepare_wikisplit-pp.py
+```
+
+- Substitute "aozora_10246" with "wikisplit-pp" in the commands in the `How to use` section.
+
+### Results
+- wikisplit-pp (20M Tokens)
+
+*Loss Dynamics*
+![loss_dynamics_wikisplit-pp](./figure/wikisplit-pp/loss_dynamics.png)
+
+*Prompt: "The train came out of the long tunnel into the snow country."*
+> Output: The train came out of the long tunnel into the snow country . In the 1970s a pedestrian was also used . However , it was widely viewed as an alternative to the American film industry . The original " Superman III " was based on the first game in series . However , he is a good friend for the character , and is reluctant to let anyone out of school . A year later the station began operation in the late 1980s , but in late 2002 to be converted to DVD . As a result , " The Voice " had some of the first international albums . He is a long - time contributor to the " New York Times ". The Daily Telegraph is an imprint of the American National Media Enterprise Association . She studied literature and art history . She was an undergraduate in the classical languages of Germany and the Austrian - Polish language . Born in the southern German region of the Czech state of the Kingdom of Hungary . The most extensive was the United States ' s entry in the 1960s , where the U . S . Supreme Court is being investigated . The
