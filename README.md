@@ -69,7 +69,8 @@ This result illustrates a part of the findings pointed out in the [Kaplan et al.
 It is interesting to see such results even in a smaller setting.
 
 
-
+## Projects Using jax-llm
+- [input-method](https://github.com/speed1313/input-method): First-two-char input method using transformer-based language model and n-gram model.
 
 
 ## References
