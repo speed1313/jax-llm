@@ -68,6 +68,12 @@ When the model size is fixed, if the number of tokens is small, the train loss a
 This result illustrates a part of the findings pointed out in the [Kaplan et al., Scaling Laws for Neural Language Models, 2020](https://arxiv.org/abs/2001.08361).
 It is interesting to see such results even in a smaller setting.
 
+## Data Parallelism
+You can train the model with multiple GPUs using data parallelism.
+```bash
+python3 src/jax_llm/train_data_parallel.py --data_name "aozora_10246" --batch_size 128 --n_iterations 5000 --n_freq_eval 100 --dropout_rate 0.1 --learning_rate 0.001 --num_layers 12 --embed_size 512  --head_size 64 --num_heads 8 --block_size 256 --n_devices 2
+```
+Using 2 GPUs with the same settings as in the previous example reduces the training time by about 1.5 times compared to using a single GPU. You can get a similar loss dynamics as the single GPU case.
 
 ## Projects Using jax-llm
 - [input-method](https://github.com/speed1313/input-method): First-two-char input method using transformer-based language model and n-gram model.

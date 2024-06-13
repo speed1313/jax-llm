@@ -187,12 +187,6 @@ def main(
         block_size=block_size,
     )
 
-    # def loss_fun(params, x, y, dropout_key):
-    #    logits = model.apply(params, x, training=True, rngs={"dropout": dropout_key})
-    #    return optax.softmax_cross_entropy_with_integer_labels(
-    #        logits=logits, labels=y
-    #    ).mean()
-
     @jax.jit
     def eval_step(params, x, y):
         logits = model.apply(params, x, training=False)
@@ -203,7 +197,6 @@ def main(
     config = ConfigDict(
         dict(
             data_axis_name="data",
-            seed=42,
         )
     )
     device_array = np.array(jax.devices()[:device_num])
