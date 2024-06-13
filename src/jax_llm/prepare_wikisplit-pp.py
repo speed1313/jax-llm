@@ -2,6 +2,7 @@ from datasets import load_dataset
 import os
 import click
 
+
 @click.command()
 @click.option(
     "--field",
@@ -10,7 +11,6 @@ import click
     help="Name of the dataset",
 )
 def main(field: str):
-
     save_dir = "data/wikisplit-pp-{field}"
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "input.txt")
@@ -23,8 +23,8 @@ def main(field: str):
             file.write(data[field])
             file.write("<|endoftext|>")
 
-
     print("Data saved to", save_path)
+
 
 if __name__ == "__main__":
     main()

@@ -20,9 +20,7 @@ def main(data_name: str, vocab_size: int):
 
     trainer = BpeTrainer(vocab_size=vocab_size, special_tokens=["<|endoftext|>"])
     files = [data_file_path]
-    tokenizer.train(
-        files, trainer
-    )
+    tokenizer.train(files, trainer)
 
     tokenizer.save(f"{save_dir}/tokenizer.json")
 
