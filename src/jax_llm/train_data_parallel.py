@@ -138,7 +138,6 @@ def main(
     )
     print("Tokenizer loaded")
     # load tokenizer json
-
     tokenizer_json = json.load(open(tokenizer_path, "r"))
     vocab_size = len(tokenizer_json["model"]["vocab"])
 
@@ -221,6 +220,7 @@ def main(
         )
         return state
 
+    # In each PartitionSpec, mentioning a mesh axis name at a position expresses sharding the corresponding argument array axis along that positional axis; not mentioning an axis name expresses replication. (https://jax.readthedocs.io/en/latest/_autosummary/jax.experimental.shard_map.shard_map.html#jax.experimental.shard_map.shard_map)
     init_dp_fn = jax.jit(
         shard_map(
             functools.partial(init_dp, model=model),
@@ -268,6 +268,7 @@ def main(
 
         return new_state, step_metrics
 
+    # In each PartitionSpec, mentioning a mesh axis name at a position expresses sharding the corresponding argument array axis along that positional axis; not mentioning an axis name expresses replication. (https://jax.readthedocs.io/en/latest/_autosummary/jax.experimental.shard_map.shard_map.html#jax.experimental.shard_map.shard_map)
     train_step_dp_fn = jax.jit(
         shard_map(
             train_step_dp,

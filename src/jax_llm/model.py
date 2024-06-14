@@ -1,9 +1,7 @@
-import tiktoken
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
 from dataclasses import dataclass
-from utils import AbstractTokenizer
 import functools
 
 

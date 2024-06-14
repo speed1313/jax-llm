@@ -1,7 +1,7 @@
 from tokenizers import Tokenizer
 
-tokenizer = Tokenizer.from_file("data/tokenizer-aozora.json")
-output = tokenizer.encode("深いおどろきにうたれて、<|endoftext|>")
+tokenizer = Tokenizer.from_file("data/aozora_10246/tokenizer.json")
+output = tokenizer.encode("国境の長いトンネルを抜けると雪国であった")
 print(output.tokens)
 print(output.ids)
 # vocab_size = len(tokenizer.get_vocab())
