@@ -20,6 +20,13 @@ def main(book_num: int):
         for i, book in enumerate(ds["train"]):
             if i > book_num:
                 break
+            # remove lines with only a few characters(ignore whitespace)
+            lines = book["text"].split("\n")
+            lines = [line.replace("\u3000", " ") for line in lines]
+            # remove head whitespace
+            lines = [line.strip() for line in lines]
+            lines = [line for line in lines if len(line.replace(' ', ''))>= 10]
+            book["text"] = "\n".join(lines)
             f.write(book["text"])
             f.write("<|endoftext|>")
 
