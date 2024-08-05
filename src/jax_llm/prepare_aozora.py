@@ -25,7 +25,7 @@ def main(book_num: int):
             lines = [line.replace("\u3000", " ") for line in lines]
             # remove head whitespace
             lines = [line.strip() for line in lines]
-            lines = [line for line in lines if len(line.replace(' ', ''))>= 10]
+            lines = [line for line in lines if len(line.replace(" ", "")) >= 10]
             book["text"] = "\n".join(lines)
             f.write(book["text"])
             f.write("<|endoftext|>")

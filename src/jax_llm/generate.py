@@ -1,4 +1,3 @@
-import tiktoken
 import jax
 from model import NanoLM
 from tokenizers import Tokenizer
@@ -46,12 +45,7 @@ def main(
     )
     key = jax.random.PRNGKey(0)
 
-    if tokenizer_path == "gpt2":
-        tokenizer = AbstractTokenizer(tiktoken.get_encoding(tokenizer_path), "gpt-2")
-    else:
-        tokenizer = AbstractTokenizer(
-            Tokenizer.from_file(tokenizer_path), tokenizer_path
-        )
+    tokenizer = AbstractTokenizer(Tokenizer.from_file(tokenizer_path), tokenizer_path)
 
     batch = text_to_token_ids(prompt, tokenizer)
 

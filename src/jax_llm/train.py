@@ -56,6 +56,12 @@ from tqdm import trange
     default=32,
     help="Size of the heads for the transformer model",
 )
+@click.option(
+    "--wandb_log",
+    type=bool,
+    default=False,
+    help="Whether to log the training to wandb",
+)
 def main(
     data_name: str,
     seed: int,
@@ -69,6 +75,7 @@ def main(
     embed_size: int,
     num_heads: int,
     head_size: int,
+    wandb_log: bool,
 ):
     data_filename = f"data/{data_name}/tokenized_text.bin"
     tokenizer_path = f"data/{data_name}/tokenizer.json"
@@ -91,7 +98,6 @@ def main(
     )
     print("Tokenizer loaded")
     # load tokenizer json
-
     tokenizer_json = json.load(open(tokenizer_path, "r"))
     vocab_size = len(tokenizer_json["model"]["vocab"])
 
@@ -102,7 +108,7 @@ def main(
     else:
         with open(data_filename, "rb") as f:
             tokenized_text = f.read()
-    train_ratio = 0.90
+    train_ratio = 0.99
     tokenized_text = jnp.frombuffer(tokenized_text, dtype=jnp.int32)
     total_tokens = len(tokenized_text)
     split_idx = int(train_ratio * total_tokens)
@@ -184,6 +190,30 @@ def main(
         params = optax.apply_updates(params, updates)
         return params, key, opt_state, loss
 
+    # store the moel config
+    config = {
+        "vocab_size": vocab_size,
+        "num_layers": num_layers,
+        "num_heads": num_heads,
+        "head_size": head_size,
+        "dropout_rate": dropout_rate,
+        "embed_size": embed_size,
+        "block_size": block_size,
+        "n_params": n_params,
+        "batch_size": batch_size,
+        "n_iterations": n_iterations,
+        "n_freq_eval": n_freq_eval,
+        "total_tokens": total_tokens,
+        "learning_rate": learning_rate,
+    }
+
+    # wandb setup
+    if wandb_log:
+        import wandb
+
+        wandb.init(project="jax_llm", name="", config=config)
+
+    # training loop
     for i in trange(n_iterations):
         var_params, key, opt_state, loss = step(key, var_params, opt_state)
         all_train_losses.append(loss)
@@ -194,6 +224,11 @@ def main(
             eval_loss = eval_step(var_params, *get_batch(subkey, eval_data))
             all_eval_losses.append(eval_loss)
             print(f"Step: {i}\t train loss: {loss}\t eval loss: {eval_loss}")
+            if wandb_log:
+                wandb.log({"iter": i, "train/loss": loss, "val/loss": eval_loss})
+            if i > 10 and (eval_loss - loss) > 1:
+                print("Overfitting detected, stopping training")
+                break
 
     plt.title("Loss dynamics")
     fig, ax1 = plt.subplots()
@@ -231,22 +266,6 @@ def main(
     with open(f"{model_path}/opt_state.pkl", "wb") as f:
         pickle.dump(opt_state, f)
 
-    # store the moel config
-    config = {
-        "vocab_size": vocab_size,
-        "num_layers": num_layers,
-        "num_heads": num_heads,
-        "head_size": head_size,
-        "dropout_rate": dropout_rate,
-        "embed_size": embed_size,
-        "block_size": block_size,
-        "n_params": n_params,
-        "batch_size": batch_size,
-        "n_iterations": n_iterations,
-        "n_freq_eval": n_freq_eval,
-        "total_tokens": total_tokens,
-        "learning_rate": learning_rate,
-    }
     with open(f"{model_path}/config.json", "w") as f:
         json.dump(config, f)
 
